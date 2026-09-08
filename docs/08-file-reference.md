@@ -111,11 +111,15 @@ Was dead code, never referenced. Sketched the intended tablet workspace: 64 dp t
 ### `drawing/Stroke.kt` ✅ · 20 lines
 `data class Stroke(id: UUID, path: Path, color: Color = Black, strokeWidth: Float = 4f)`.
 
-### `drawing/CanvasState.kt` ✅ · ~185 lines
-`enum class ToolType { PEN, ERASER }` and `class CanvasState`. Holds `strokes`, `undoneStrokes`, `currentStroke`, `activeTool`, `strokeColor`, `strokeWidth`. Methods: `startStroke`, `continueStroke`, `finishStroke`, `cancelStroke` ⚠️(still uncalled from anywhere — no gesture maps to it yet), `eraseAtPosition`, private `strokeIntersectsRect`, `undo`, `redo`, `canUndo`, `canRedo` (all called from `DrawingToolbar` since Session 4 — corrected here in Session 6, this line previously said "uncalled" and was stale), `clearAll` (called from `DrawingToolbar` via `CanvasScaffold`'s `onClear`). **New in Session 6:** `canUndoClear()` / `undoClear()` — a one-level snapshot-restore for `clearAll()`, fixing bug #13. Covered by `app/src/test/.../CanvasStateTest.kt` (Robolectric, 6 tests).
+### `drawing/CanvasState.kt` ✅ · ~250 lines — **substantially rewritten in Session 6**
+`enum class ToolType { PEN, ERASER }`, a private `StrokeCommand` sealed type (`Add`, `Erase`), and `class CanvasState`. Holds `strokes`, `currentStroke`, `activeTool`, `strokeColor`, `strokeWidth`. The old public `undoneStrokes: List<Stroke>` getter is gone — nothing outside this file ever read it, and it has no clean equivalent once redo is command-based rather than stroke-based.
 
-### `drawing/DrawingCanvas.kt` ✅ · 94 lines
-`DrawingCanvas(canvasState, modifier)` — a transparent `Canvas` with a raw `awaitPointerEvent` loop keyed on `activeTool`, dispatching to pen or eraser behaviour, and a draw phase that repaints every stroke plus the in-progress one with round caps and joins.
+Methods: `startStroke`, `continueStroke`, `finishStroke` (now pushes an `Add` command), `cancelStroke` ⚠️(still uncalled from anywhere — no gesture maps to it yet), `eraseAtPosition` (now accumulates into the current erase gesture rather than pushing its own command every call), `undo`/`redo` (now interpret `StrokeCommand`s rather than moving raw strokes between two lists — fixes bug #5, "undo and erase shared one stack"), `canUndo`/`canRedo`, `clearAll` (unchanged from Session 4 — undoable via its own separate `canUndoClear()`/`undoClear()`, not folded into the `Add`/`Erase` stack; see the KDoc on `lastClearedSnapshot` for why). **New in Session 6:** `beginErase()`/`finishErase()` — a gesture lifecycle mirroring the pen's start/continue/finish, so one erase drag across several strokes is one undo step, called from `DrawingCanvas.kt`.
+
+Covered by 17 tests across `app/src/test/.../drawing/CanvasStateTest.kt` (6, `clearAll`/`undoClear`, `VAHI-003`) and `CanvasStateUndoRedoTest.kt` (11, the command-history fix, `VAHI-007`/`VAHI-120`) — both Robolectric, since `Stroke.path` is `android.graphics.Path`-backed.
+
+### `drawing/DrawingCanvas.kt` ✅ · ~105 lines
+`DrawingCanvas(canvasState, modifier)` — a transparent `Canvas` with a raw `awaitPointerEvent` loop keyed on `activeTool`, dispatching to pen or eraser behaviour, and a draw phase that repaints every stroke plus the in-progress one with round caps and joins. **Session 6:** the ERASER branch now tracks a local `eraseGestureActive` flag and calls `canvasState.beginErase()`/`finishErase()` around a drag, so a whole erase gesture becomes one undo step (`VAHI-120`) instead of one per pointer sample. `event.changes.firstOrNull()` — the source of bug #14 (palm rejection) — is unchanged; that's `VAHI-112`/`VAHI-113`, not touched this session.
 
 ### `drawing/DrawingToolbar.kt` ✅ **new (Session 4)**, fixed (Session 6) · ~250 lines
 > Session 5 found four defects here — the Clear button was unrecoverable (#13), touch targets were 40 dp not 48 dp (#15), no content descriptions and every colour hardcoded so the rail was invisible on dark paper (#16), and the width preview rendered a pixel value as dp (#18). **All four fixed in Session 6** (`VAHI-003`) — see `09-project-status.md` for detail. Clear now takes an `onClear` callback rather than calling `CanvasState.clearAll()` directly, so `CanvasScaffold.kt` can offer an "Undo" snackbar.
@@ -193,11 +197,12 @@ Four files, each three lines (two comments + a `package` declaration):
 | `app/src/test/java/com/vahi/app/ExampleUnitTest.kt` | ⚠️ | Template — `assertEquals(4, 2 + 2)` |
 | `app/src/androidTest/java/com/vahi/app/ExampleInstrumentedTest.kt` | ⚠️ | Template — asserts the package name |
 | `app/src/test/.../drawing/CanvasStateTest.kt` | ✅ **new (Session 6)** | 6 tests, Robolectric — `clearAll()`/`undoClear()` (`VAHI-003`) |
+| `app/src/test/.../drawing/CanvasStateUndoRedoTest.kt` | ✅ **new (Session 6)** | 11 tests, Robolectric — the command-history fix (`VAHI-007`/`VAHI-120`) |
 | `app/src/test/.../core/model/CoordinateSpacesTest.kt` | ✅ **new (Session 6)** | 5 tests, plain JVM |
 | `app/src/test/.../core/model/ViewTransformTest.kt` | ✅ **new (Session 6)** | 7 tests, plain JVM, incl. exact round-trips |
 | `app/src/test/.../core/model/PageLayoutTest.kt` | ✅ **new (Session 6)** | 12 tests, plain JVM, incl. gap/boundary cases |
 
-30 tests beyond the two templates, all passing. **Still nothing covers:** pointer arbitration/palm rejection (bug #14 — no code exists yet to test), the command-history conflation (bug #5 — `VAHI-120`), any Compose UI/navigation smoke test (`ui-test-junit4` is on the classpath, unused).
+41 tests beyond the two templates, all passing. **Still nothing covers:** pointer arbitration/palm rejection (bug #14 — no code exists yet to test; that's `VAHI-112`/`VAHI-113`), any Compose UI/navigation smoke test (`ui-test-junit4` is on the classpath, unused).
 
 ---
 
@@ -208,8 +213,8 @@ Re-counted at the end of Session 6 (2026-09-08) via `find` and `wc -l`, after th
 | Metric | Value |
 |---|---|
 | Kotlin source files (main) | 26 (`AppDestination.kt`, `NotebookCanvasScreen.kt` deleted; `core/model/`'s 3 files added; net since Session 5: +1) |
-| Kotlin test files | 6 (`CanvasStateTest.kt` + `core/model/`'s 3 test files added) |
-| Lines of Kotlin (main + test) | 3,444 |
+| Kotlin test files | 7 (`CanvasStateTest.kt`, `CanvasStateUndoRedoTest.kt` + `core/model/`'s 3 test files) |
+| Lines of Kotlin (main + test) | 3,753 |
 | Largest file | `HomeScreen.kt`, 990 lines — still the strongest candidate for a split, deferred to ride along with its ViewModel (`VAHI-206`) |
 | `@Composable` functions | 36 (verified via `grep -c`) |
 | Enums | 3 (`CanvasType` — now `@Serializable` — `ToolType`, `WindowClass`; `AppDestination` and `NotebookType` deleted this session) |

@@ -30,11 +30,18 @@ fun DrawingCanvas(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(canvasState.activeTool) {
+                // Whether an erase gesture (pointer down with the eraser active) is
+                // currently in progress. Local to this pointerInput block, which is
+                // re-created whenever activeTool changes, so it starts fresh every
+                // time the eraser is (re)selected — mirrors how currentStroke == null
+                // signals "no pen gesture in progress" for the PEN branch below.
+                var eraseGestureActive = false
+
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull() ?: continue
-                        
+
                         when (canvasState.activeTool) {
                             ToolType.PEN -> {
                                 if (change.pressed) {
@@ -55,9 +62,17 @@ fun DrawingCanvas(
                             }
                             ToolType.ERASER -> {
                                 if (change.pressed) {
-                                    // Erase strokes at touch position
+                                    if (!eraseGestureActive) {
+                                        // Pointer DOWN - begin batching this drag into one undo step
+                                        canvasState.beginErase()
+                                        eraseGestureActive = true
+                                    }
                                     canvasState.eraseAtPosition(change.position)
                                     change.consume()
+                                } else if (eraseGestureActive) {
+                                    // Pointer UP - flush the batch (docs/09-project-status.md bug #5)
+                                    canvasState.finishErase()
+                                    eraseGestureActive = false
                                 }
                             }
                         }

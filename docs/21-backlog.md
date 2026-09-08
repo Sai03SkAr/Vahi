@@ -89,10 +89,9 @@ VAHI-001 commit tree
 **Do:** move the tablet-only message to the app shell, not to Auth. Auth becomes a Settings-reachable screen only.
 **Deps:** VAHI-201.
 
-### VAHI-007 · First unit tests: command history ⬜ S
-**Why:** the best test in the project — pure logic, no Android dependencies, real edge cases, and the area currently **known** to be wrong (erase and undo share one stack; drawing after erasing silently makes the erase permanent).
-**Do:** write tests that fail against today's `CanvasState`, documenting the actual bugs. They become the specification for `VAHI-120`.
-**Accept:** JVM tests run in < 1 s; each documents one real defect.
+### VAHI-007 · First unit tests: command history ✅ Done, folded into VAHI-120 (Session 6) · S
+**Why:** the best test in the project — pure logic, real edge cases, and the area that was **known** to be wrong (erase and undo shared one stack; drawing after erasing silently made the erase permanent).
+**What happened:** rather than writing failing tests against the old `CanvasState` and fixing it as a separate later pass, `VAHI-120`'s scoped fix (see below) was small enough to do in one pass — tests were written *and* made to pass in the same session. This entry is kept only so `VAHI-120`'s dependency graph stays accurate.
 **Deps:** VAHI-002.
 
 ### VAHI-008 · Set up the reference devices ⬜ S
@@ -156,11 +155,12 @@ VAHI-001 commit tree
 **Accept:** dense-page and 100-page-scroll budgets from [`19-quality-bar.md`](19-quality-bar.md) §2.2 met on T2.
 **Deps:** VAHI-110, VAHI-102.
 
-### VAHI-120 · Command history (F5) ⬜ M
-**Why:** one user action = one undo step. Must land **before** more tools exist — every new tool multiplies the broken interactions with the current shared-stack design.
-**Do:** [`16-canvas-spec.md`](16-canvas-spec.md) §9. Notebook-scoped, depth 100, `ClearPage` undoable, one eraser drag = one command.
-**Accept:** the `VAHI-007` tests now pass; §11 "Editing" checklist passes.
-**Deps:** VAHI-102, VAHI-007.
+### VAHI-120 · Command history — scoped fix for the current stroke model 🟨 Done for today's `CanvasState` (Session 6) · M
+**Why:** one user action = one undo step. The shared-stack design meant `redo()` could un-erase a stroke, and drawing after an erase silently made it permanent (bug #5).
+**Done:** a private `StrokeCommand` sealed type (`Add`, `Erase`) with separate `undoStack`/`redoStack` in `CanvasState`, replacing the single stroke-list `_undoneStrokes`. New `beginErase()`/`finishErase()` gesture lifecycle in `CanvasState`, called from `DrawingCanvas.kt`'s pointer loop — batches an entire erase drag (potentially many `eraseAtPosition` calls, one per pointer sample) into **one** undo step, not one per sample. `Clear` deliberately stays on its own separate mechanism (`VAHI-003`'s `lastClearedSnapshot`/`undoClear()`), not folded into this stack — see the KDoc on `CanvasState.lastClearedSnapshot` for the specific correctness reason (a stale snackbar could otherwise undo the wrong action). History is per-`CanvasState` (i.e. per canvas session, not per-notebook — there's no notebook concept yet) and is cleared by `clearAll()`, matching the original design's intent.
+**Accept:** 11 tests in `CanvasStateUndoRedoTest.kt` (Robolectric) — redo never un-erases; undo/redo of an erase; one-drag-one-step; an empty erase drag doesn't consume an undo slot; the redo stack is correctly invalidated by new ink. `assembleDebug` + `testDebugUnitTest` both pass.
+**Not done — this is the "full model" gap, deliberately deferred:** [`16-canvas-spec.md`](16-canvas-spec.md) §9's real target (`AddStroke`/`EraseStrokes`/`TransformStrokes`/`ClearPage` all as one unified stack, **notebook-scoped** history with a depth cap, `ClearPage` genuinely undoable via the same `undo()` a user already knows) needs the `FinishedStroke`/`PageState` types that only exist once the `androidx.ink` decision (D6) is settled and `VAHI-102` lands. Building that now would mean designing against types that don't exist yet — the same ordering mistake D6 warns against. §11 "Editing" checklist in doc 16 is **not** fully met by this pass (e.g. no cross-page history, no depth cap) and shouldn't be treated as closed.
+**Deps:** VAHI-002 (uses only what's already in the app). **Full version blocked on:** VAHI-102.
 
 ### VAHI-121 · Geometry-accurate erase ⬜ S
 **Why:** `strokeIntersectsRect` tests the axis-aligned **bounding box**, so touching anywhere inside a long diagonal stroke's box erases the whole thing — often far from any visible ink.

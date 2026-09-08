@@ -80,10 +80,7 @@ The encapsulation is clean: mutation happens only through methods, and the lists
 
 **Eraser granularity — whole strokes only.** There is no partial/pixel erase. Touching a stroke removes all of it.
 
-**Erase and undo share one stack.** Erased strokes are pushed onto `_undoneStrokes`, so `redo()` will resurrect them. Two problems follow:
-1. Erasing several strokes in one drag pushes them individually, so each `redo()` restores one — order is by removal sequence, not by user action.
-2. Because `finishStroke()` clears the redo stack, drawing after erasing silently discards the ability to un-erase.
-A proper fix is a single command/action stack (`AddStroke`, `EraseStrokes(list)`) rather than a stroke stack.
+**✅ FIXED (Session 6) — Erase and undo used to share one stack.** Erased strokes were pushed onto `_undoneStrokes`, so `redo()` would resurrect them, and `finishStroke()` clearing that list meant drawing after an erase silently discarded the ability to un-erase. Fixed with a private `StrokeCommand` sealed type (`Add`/`Erase`) and separate `undoStack`/`redoStack`, plus a `beginErase()`/`finishErase()` gesture lifecycle so one erase drag across several strokes is one undo step, not N. See [`09-project-status.md`](09-project-status.md) bug #5 for full detail — this section is left here, marked fixed, as a historical record; the eventual `androidx.ink` rework will replace this model with the real `AddStroke`/`EraseStrokes` command types from [`16-canvas-spec.md`](16-canvas-spec.md) §9 rather than extend it further.
 
 **`continueStroke` allocates per motion event.** Every pointer move creates a new `Stroke` object. The `Path` is shared by reference, so it isn't a deep copy — but at ~120–240 Hz stylus sampling this is meaningful allocation churn. Bumping an integer version counter in the state holder would be cheaper.
 

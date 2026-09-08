@@ -122,8 +122,13 @@ Same pattern affected `profileButtonPosition` and `cardMenuAnchor.offset.y`. The
 ### 4. Eraser deletes by bounding box
 `strokeIntersectsRect` tests `stroke.path.getBounds().overlaps(rect)`. A long diagonal stroke has a bounding box spanning a large region, so touching anywhere inside that box erases the whole stroke — potentially far from any visible ink. **Severity: medium.** Fix: walk the path with `PathMeasure` and test point-to-eraser distance.
 
-### 5. Undo and erase share one stack
-Erased strokes are pushed onto `_undoneStrokes`, so `redo()` un-erases them; and `finishStroke()` clears that stack, so drawing after erasing silently makes the erase permanent. Erasing N strokes in one drag requires N redos to reverse. **Severity: medium.** Fix: an action/command stack rather than a stroke stack.
+### 5. ✅ FIXED (Session 6) — Undo and erase shared one stack
+
+Erased strokes were pushed onto `_undoneStrokes` — the same list used for stroke-add redo — so `redo()` would un-erase a stroke instead of re-adding whatever had actually just been undone. `finishStroke()` cleared that list, so drawing after erasing silently made the erase permanent with no way back. Erasing N strokes in one drag also pushed N entries (one per pointer sample), not one.
+
+**Fix applied (`VAHI-007`/`VAHI-120`):** `CanvasState` now has a private `StrokeCommand` sealed type (`Add`, `Erase`) and two stacks — `undoStack`/`redoStack` — replacing the single stroke-based `_undoneStrokes`. `undo()`/`redo()` interpret the command instead of blindly moving strokes between two lists, so a redo can never resurrect an erased stroke by accident. A new `beginErase()`/`finishErase()` gesture lifecycle (mirroring the pen's `startStroke`/`continueStroke`/`finishStroke`) batches everything removed during one erase drag — potentially many `eraseAtPosition` calls, one per pointer sample — into a **single** undo step; `DrawingCanvas.kt`'s pointer loop was updated to call them. This is a scoped fix for the *current* stroke model, not the full command model in [`16-canvas-spec.md`](16-canvas-spec.md) §9 (which assumes ink-engine types that don't exist until [D6](22-decisions.md#d6--ink-architecture-adopt-androidxink) is settled) — `Clear` deliberately stays on its own separate undo mechanism from `VAHI-003`, not folded into this stack; see the KDoc on `lastClearedSnapshot` for why unifying them would risk a stale snackbar undoing the wrong action.
+
+11 new unit tests in `CanvasStateUndoRedoTest.kt` (Robolectric), covering: redo never un-erasing, undo/redo of an erase, one-drag-one-undo-step, an empty erase drag not consuming an undo slot, and the redo-stack being correctly invalidated by new ink after an undo. Verified: `:app:testDebugUnitTest` and `:app:assembleDebug` both `BUILD SUCCESSFUL`.
 
 ### 6. ✅ FIXED (Session 4) — Splash could hang forever
 `onTimeout()` only fired on `Player.STATE_ENDED`. There was no `onPlayerError` handler and no timeout fallback, so a media failure left the user permanently on the splash screen.
