@@ -128,10 +128,22 @@ Was dead code, never referenced. Sketched the intended tablet workspace: 64 dp t
 
 | File | Status | Contents |
 |---|---|---|
-| `Color.kt` | ✅ | ~36 colour constants (4 unused ones removed in Session 4): Material scheme tokens (light + dark), 7 Home tokens, 3 Auth/input tokens, 1 accent, plus a new `VahiTextPlaceholder` (`#767676`) added in Session 4 to fix two WCAG-AA contrast failures |
+| `Color.kt` | ✅ | ~41 colour constants: Material scheme tokens (light + dark), 7 Home tokens, 3 Auth/input tokens, 1 accent, `VahiTextPlaceholder` (`#767676`, Session 4, fixes two WCAG-AA contrast failures), and 5 new ink-palette constants (`VahiInk*`, Session 6 — the tool rail's pen swatches, moved out of inline hex literals as part of `VAHI-003`) |
 | `Type.kt` | ✅ | `VahiTypography` — all 15 Material 3 roles explicitly defined, `FontFamily.Default` throughout |
 | `Shape.kt` | ✅ | `VahiShapes` — 4/8/12/16/24 dp |
 | `Theme.kt` | ✅ | `VahiDarkColorScheme`, `VahiLightColorScheme`, `VahiTheme(darkTheme, dynamicColor = false, content)` — default changed from `true` to `false` in Session 4 (decision D4) |
+
+---
+
+## `core/model/` ✅ **new (Session 6)**
+
+The first package built directly onto the target shape in [`18-architecture-target.md`](18-architecture-target.md) §2 — pure Kotlin, zero Android-framework dependency (verified: its 24 tests run as plain JVM tests, no Robolectric needed, unlike `CanvasState`/`Stroke`). Implements [`16-canvas-spec.md`](16-canvas-spec.md) §2. Not yet used by any screen — see `VAHI-110` in `21-backlog.md` for what's left.
+
+| File | Contents |
+|---|---|
+| `CoordinateSpaces.kt` | `ScreenPoint`, `DocumentPoint` (+`DocumentOffset`), `PagePoint`, `PageSize` (incl. `A4_PORTRAIT`) — the three coordinate spaces from doc 16 §2 as **distinct types**, not a shared `Offset` distinguished only by convention |
+| `ViewTransform.kt` | `scale` + `pan`; `documentToScreen`/`screenToDocument` via the real `androidx.compose.ui.unit.Density`; `MAX_VIEW_SCALE`, `MIN_VIEW_SCALE_PAGE_FRACTION` |
+| `PageLayout.kt` | The vertical page-strip model — precomputed page offsets (`O(1)` per lookup, not `O(n)`), `pageAt`/`toDocumentPoint`, width-centring for mixed page sizes, `PAGE_GAP_PT = 24` |
 
 ---
 
@@ -180,23 +192,27 @@ Four files, each three lines (two comments + a `package` declaration):
 |---|---|---|
 | `app/src/test/java/com/vahi/app/ExampleUnitTest.kt` | ⚠️ | Template — `assertEquals(4, 2 + 2)` |
 | `app/src/androidTest/java/com/vahi/app/ExampleInstrumentedTest.kt` | ⚠️ | Template — asserts the package name |
+| `app/src/test/.../drawing/CanvasStateTest.kt` | ✅ **new (Session 6)** | 6 tests, Robolectric — `clearAll()`/`undoClear()` (`VAHI-003`) |
+| `app/src/test/.../core/model/CoordinateSpacesTest.kt` | ✅ **new (Session 6)** | 5 tests, plain JVM |
+| `app/src/test/.../core/model/ViewTransformTest.kt` | ✅ **new (Session 6)** | 7 tests, plain JVM, incl. exact round-trips |
+| `app/src/test/.../core/model/PageLayoutTest.kt` | ✅ **new (Session 6)** | 12 tests, plain JVM, incl. gap/boundary cases |
 
-No test covers any Vahi code.
+30 tests beyond the two templates, all passing. **Still nothing covers:** pointer arbitration/palm rejection (bug #14 — no code exists yet to test), the command-history conflation (bug #5 — `VAHI-120`), any Compose UI/navigation smoke test (`ui-test-junit4` is on the classpath, unused).
 
 ---
 
 ## Quick counts
 
-Re-counted in Session 6 (2026-09-08) via `find` and `wc -l`, after `AppDestination.kt` and `NotebookCanvasScreen.kt` were deleted and `CanvasStateTest.kt` was added.
+Re-counted at the end of Session 6 (2026-09-08) via `find` and `wc -l`, after the navigation rewrite and the new `core/model/` package.
 
 | Metric | Value |
 |---|---|
-| Kotlin source files (main) | 23 (`AppDestination.kt`, `NotebookCanvasScreen.kt` deleted this session; net change since Session 5: −2) |
-| Kotlin test files | 3 (`CanvasStateTest.kt` added this session) |
-| Lines of Kotlin (main + test) | 3,039 |
+| Kotlin source files (main) | 26 (`AppDestination.kt`, `NotebookCanvasScreen.kt` deleted; `core/model/`'s 3 files added; net since Session 5: +1) |
+| Kotlin test files | 6 (`CanvasStateTest.kt` + `core/model/`'s 3 test files added) |
+| Lines of Kotlin (main + test) | 3,444 |
 | Largest file | `HomeScreen.kt`, 990 lines — still the strongest candidate for a split, deferred to ride along with its ViewModel (`VAHI-206`) |
 | `@Composable` functions | 36 (verified via `grep -c`) |
 | Enums | 3 (`CanvasType` — now `@Serializable` — `ToolType`, `WindowClass`; `AppDestination` and `NotebookType` deleted this session) |
-| Data classes | 3 (`Notebook`, `CardMenuAnchor`, `Stroke`) |
+| Data classes | 9 (`Notebook`, `CardMenuAnchor`, `Stroke`; `core/model`'s `ScreenPoint`, `DocumentPoint`, `DocumentOffset`, `PagePoint`, `PageSize`, `ViewTransform`, added Session 6) |
 | Non-composable classes | 2 (`CanvasState`, `BaseViewModel`) |
 | Files that are dead or empty | 4 × `package-info.kt` marker files. `BaseViewModel.kt` is written but still has no subclass — kept out of the "dead" count since it's a deliberate placeholder, not an oversight. |

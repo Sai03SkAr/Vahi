@@ -122,11 +122,12 @@ VAHI-001 commit tree
 **Accept:** [`16-canvas-spec.md`](16-canvas-spec.md) §3.1 interface implemented; `grep -rl "androidx.ink" app/src/main` returns exactly one file; unit tests cover serialise/deserialise round-trip.
 **Deps:** VAHI-101.
 
-### VAHI-110 · ★ Coordinate model and view transform ⬜ M
+### VAHI-110 · ★ Coordinate model and view transform 🟨 Core types done (Session 6) · M
 **Why:** the foundation most likely to be overlooked and the most expensive to retrofit. Strokes today are stored in screen pixels of whatever device drew them.
-**Do:** implement [`16-canvas-spec.md`](16-canvas-spec.md) §2 — page/document/screen spaces, `ViewTransform`, the page strip, A4 in points.
-**Accept:** pure JVM tests for every transform, including round-trips at multiple densities and zoom levels; no geometry anywhere in screen pixels.
-**Deps:** VAHI-002. **Blocks:** VAHI-301 — *this is the hard ordering rule.*
+**Done:** `core/model/` — `ScreenPoint`, `DocumentPoint`, `DocumentOffset`, `PagePoint`, `PageSize` (§2's three spaces as **distinct types**, not a shared `Offset` distinguished only by naming — the same class of unit-mixing bug as #18, now caught by the compiler); `ViewTransform` (scale + pan, `documentToScreen`/`screenToDocument` via the real `androidx.compose.ui.unit.Density`, not a raw `Float`); `PageLayout` (the page-strip model — precomputed offsets, `pageAt`/`toDocumentPoint`, pages centred by width, `PAGE_GAP_PT = 24`). A4 in points is `PageSize.A4_PORTRAIT`.
+**Accept:** 24 pure-JVM tests (no Robolectric needed — confirms these types have no Android/native dependency), including exact round-trips at non-trivial scale/pan/density, gap/boundary cases in `pageAt`, and centring math for mixed page widths. `assembleDebug` + `testDebugUnitTest` both pass.
+**Not done — this item is not closed yet:** nothing in the app **uses** this model yet. `CanvasState`/`DrawingCanvas`/`CanvasScaffold` still work entirely in raw screen pixels; pointer input is not yet converted through `screenToDocument`, and no page strip is rendered. That wiring is real, separate work — folding it in here would mean touching the ink engine before `VAHI-101`/`VAHI-102` (the `androidx.ink` decision) is settled, which is exactly the ordering mistake [D6](22-decisions.md#d6--ink-architecture-adopt-androidxink) warns against. **What this item *does* unblock right now:** Room can be designed and built against page-space geometry ([`17-data-spec.md`](17-data-spec.md) R1) without waiting on the ink engine — see `VAHI-301`.
+**Deps:** VAHI-002. **Blocks:** VAHI-301 — *this is the hard ordering rule, and it now technically holds: the types exist.*
 
 ### VAHI-111 · Pan and zoom ⬜ M
 **Do:** two-finger pan + pinch about the centroid; clamped scale; double-tap fit-to-width. Retires the 4000 dp grid surface ([D1](22-decisions.md#d1--paged-documents-not-infinite-canvas)) and fixes bug #2 by construction.

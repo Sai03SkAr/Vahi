@@ -21,6 +21,15 @@ There are no Fragments, no XML layouts, no Services, no BroadcastReceivers, no C
 com.vahi.app
 ├── MainActivity.kt                     Entry point. setContent { VahiTheme { AppRoot() } }
 │
+├── core/                               ⭐ new (Session 6) — first package built directly
+│   └── model/                          onto the target shape (18-architecture-target.md §2)
+│       ├── CoordinateSpaces.kt         ScreenPoint / DocumentPoint / PagePoint / PageSize
+│       ├── ViewTransform.kt            scale + pan; documentToScreen / screenToDocument
+│       └── PageLayout.kt               the vertical page-strip model
+│                                       Pure Kotlin — no Android dependency (its 24 tests
+│                                       run without Robolectric). Not yet used by any
+│                                       screen — see VAHI-110 in 21-backlog.md.
+│
 ├── ui/
 │   ├── theme/                          Design system
 │   │   ├── Color.kt                    Colour constants + the 5-swatch ink palette
