@@ -4,9 +4,9 @@
 
 The name comes from *vahi* (वही) — the traditional Indian ledger/notebook.
 
-> **Status: early prototype, fully planned.** The UI shell (splash → auth → home → canvas) is built and navigable, freehand drawing works, and the canvas has a tool rail. There is **no persistence, no backend, no real authentication, and no ViewModel wiring** — everything lives in in-memory Compose state and is lost when you leave a screen or rotate the device.
+> **Status: implementation in progress, foundation work started.** The UI shell (splash → library → canvas, auth wall removed) is built and navigable, freehand drawing works with a real undo/redo/erase model, and the canvas has a tool rail. Notebook metadata (create/list/open/pin/delete-with-undo) persists via Room + Hilt + a real ViewModel. There is still **no backend, no real authentication, and no ink/stroke persistence** — the canvas itself is lost when you leave a screen or rotate the device.
 >
-> Detailed planning is complete: 23 documents covering product scope, UX, the canvas, the data model, target architecture, quality budgets, release, a numbered backlog and a decision log. **Implementation has not started.** See [`docs/00-START-HERE.md`](docs/00-START-HERE.md).
+> Detailed planning is complete: 23+ documents covering product scope, UX, the canvas, the data model, target architecture, quality budgets, release, a numbered backlog and a decision log. See [`docs/00-START-HERE.md`](docs/00-START-HERE.md) for exactly what's built vs. planned.
 
 **Design file:** [`vahi-v1` on Figma](https://www.figma.com/design/JJAGOm1by1gHE6Nxe4yUhx/vahi-v1?node-id=0-1) — the visual source of truth. Not yet reconciled with the docs ([`22-decisions.md` V4](docs/22-decisions.md)).
 

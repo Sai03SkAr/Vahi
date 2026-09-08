@@ -8,6 +8,36 @@ Purpose: if a session ends abruptly or a usage limit is hit, the next session re
 
 ---
 
+## 2026-09-08 — Session 7: Implement D10 (kill the auth wall), partial emoji fix, doc accuracy sweep
+
+**Requested:** "continue with the work, tell me if everything is done or not, if anything remains then complete it" — a fresh-context continuation after a long prior session. Also granted push permission for the private repo ("the vahi repo on my account is private so u can push there").
+
+### First, an honest re-audit — the backlog was not actually "done"
+
+A prior response in the same overall thread had implied the work was complete once persistence/Hilt/the self-audit fix landed. Re-reading `21-backlog.md` cold at the start of this session showed that framing was too generous: **E4 through E7 (14+7+6+7 = 34 items, the majority of the v1.0 product scope) are still entirely `⬜ Not started`** — export, settings, onboarding, accessibility pass, page model, autosave (the "milestone that matters"), and more. What *was* actually complete was the specific increment from the prior pass (Room/Hilt/ViewModel + the Color-in-domain fix), not the product. Worth recording as a process note: **re-derive backlog status from the file itself before reporting completion, don't trust a summary of a prior claim.**
+
+### What's actually blocked vs. what wasn't
+
+Most of the large remaining work (`VAHI-101` ink-latency benchmark, and everything downstream of it — `VAHI-102` `InkEngine`, `VAHI-110` wired, `VAHI-111`–`115`, page/stroke persistence, autosave) is genuinely blocked on physical Android tablet hardware, which this environment does not have and the project's own rules (`CLAUDE.md` rule 3, the ink-architecture failure-mode table) explicitly forbid working around by wiring the coordinate model or persistence ahead of that measurement. That blocker is real and unchanged.
+
+But not everything was blocked. Found and did three small, genuinely unblocked, correctly-sequenced items:
+
+**`VAHI-006` + `VAHI-205` (the D10 half) — done.** `AppRoot.kt`'s `Splash` destination now navigates straight to `Library` on timeout, never to `Auth` — implementing [D10](22-decisions.md#d10--no-auth-wall-account-is-optional-and-requested-in-context) (✅ Accepted since Session 5, never implemented until now). The tablet-only fallback moved from `AuthScreen.kt`'s `AuthFallbackLayout` to a new `TabletOnlyFallback()` at the app-shell level in `AppRoot.kt`, gated once via `windowClass()` above the whole `NavHost` — necessary, not cosmetic: `HomeScreen.kt` has no Compact fallback of its own, so simply removing Auth from the path without this move would have left phone users looking at raw tablet UI with no protective message at all, a regression from today's behaviour. `AuthScreen.kt` simplified to drop its now-redundant size branch; `Auth` stays declared in the nav graph, unreached, rather than deleted — real UI work, kept for `VAHI-406`'s future Settings entry point. **`D11`'s half (the video splash / `androidx.media3` removal) was deliberately not touched** — that item is explicitly owner-gated in the backlog, and unilaterally deciding a brand question wasn't in scope.
+
+**`VAHI-204` — partial, 2 of 12 glyphs.** Read `ToolbarGlyphToggle` in `DrawingToolbar.kt` closely before touching anything, and found ten of the twelve catalogued emoji/glyphs (`⊞ ≡ ⋮⋮ 🧮 💻 📓 □ ↓ ← G` plus the drawing toolbar's `✒ ⌫ ↶ ↷`) already carry correct `semantics { contentDescription = label }` — a screen reader already announces "Pen tool," not the glyph. Only two — `HomeScreen.kt`'s profile avatar (`🐦`) and search-bar icon (`🔍`) — had zero semantics at all, a genuine, live accessibility bug. Fixed those two with `Icons.Default.Person`/`Icons.Default.Search` (already used elsewhere in the codebase, so no new dependency), added a real `contentDescription`, and bumped the profile button's touch target 44dp → 48dp while in there. **Deliberately left the other ten** — iconography is a Figma-owned concern per [V4](22-decisions.md#v4--figma-is-the-visual-source-of-truth-the-docs-describe-behaviour), `VAHI-004` (reading the Figma) is still owner-blocked, several of the remaining glyphs (`⊞ ≡ □`) don't exist in the core Material icon set and would need a new dependency or hand-drawn vectors, and doing that work twice once real iconography exists is waste this project's own docs warn against elsewhere.
+
+**Docs:** `21-backlog.md` (`VAHI-006` done, `VAHI-204`/`VAHI-205` split/partial, epic summary counts corrected), `22-decisions.md` (D10 marked implemented), `00-START-HERE.md`, `README.md`, `09-project-status.md` (five stale lines corrected — the auth-flow description, the emoji bug entry, the phone-dead-end bug writeup, and a flatly wrong "Tests: None beyond templates" line sitting right next to what I was already editing — 51 tests have existed since Session 6).
+
+### State at end
+
+Build green (`:app:assembleDebug` + `:app:testDebugUnitTest`, `BUILD SUCCESSFUL`, 51 tests). Working tree was clean at session start (16 commits ahead of `origin/main`, nothing pushed) — this session's changes are additional commits on top.
+
+### Next action
+
+Unchanged and binding: `VAHI-008` → `VAHI-101` — a real mid-range Android tablet, needed to measure ink latency and settle D6. Everything sized-Epic (E4–E7, and E1's remaining ink items) either depends on that measurement or is real, uncommenced product work — there is no more "quick, unblocked" work of the kind done this session; what's left is genuinely large.
+
+---
+
 ## 2026-09-08 — Session 6, planning pass: All-device expansion plan (D17 resolved)
 
 **Requested:** plan how Vahi becomes available on all devices — phones, tablets, Android and iOS — as a phase *after* the current v1 work, explicitly **without implementing any of it now**. Also asked why the Hilt work hadn't been done.

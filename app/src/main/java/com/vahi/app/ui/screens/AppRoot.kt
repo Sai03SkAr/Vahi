@@ -1,11 +1,29 @@
 package com.vahi.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.vahi.app.R
 import com.vahi.app.core.model.PaperStyle
+import com.vahi.app.ui.components.WindowClass
+import com.vahi.app.ui.components.windowClass
 import kotlinx.serialization.Serializable
 
 /**
@@ -28,6 +46,11 @@ import kotlinx.serialization.Serializable
  */
 @Serializable private data object Splash
 
+/** Declared but currently unreachable: docs/22-decisions.md D10 removes the auth
+ *  wall from the startup path (launch → library directly). This destination stays
+ *  in the graph, un-navigated-to, until `VAHI-406` gives it a Settings entry point —
+ *  deleting it now would throw away real UI work for a screen the product still
+ *  wants, just not on the critical path. */
 @Serializable private data object Auth
 
 @Serializable private data object Library
@@ -39,13 +62,22 @@ import kotlinx.serialization.Serializable
 
 @Composable
 fun AppRoot() {
+    // App-shell-level size gate (VAHI-006): checked once, above the nav graph, so
+    // every destination gets tablet-only protection — not just the one screen
+    // (Auth) that used to check it before the auth wall came off the startup path.
+    if (windowClass() != WindowClass.Expanded) {
+        TabletOnlyFallback()
+        return
+    }
+
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = Splash) {
         composable<Splash> {
             SplashScreen(
                 onTimeout = {
-                    navController.navigate(Auth) {
+                    // D10: launch → library directly, no forced auth wall.
+                    navController.navigate(Library) {
                         popUpTo(Splash) { inclusive = true }
                     }
                 }
@@ -76,6 +108,36 @@ fun AppRoot() {
                 notebookId = editor.notebookId,
                 canvasType = editor.canvasType,
                 onBack = { navController.popBackStack() }
+            )
+        }
+    }
+}
+
+/** Tablet-only for v1 — decision D2. Shown for Compact/Medium before any route,
+ *  including Splash, so a phone user is never shown even one frame of tablet UI. */
+@Composable
+private fun TabletOnlyFallback() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = stringResource(R.string.tablet_only_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.tablet_only_message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
             )
         }
     }

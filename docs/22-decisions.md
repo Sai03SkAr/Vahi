@@ -269,7 +269,7 @@ download."
 
 ## D10 — No auth wall; account is optional and requested in context
 
-**Status:** ✅ Accepted (Session 5, 2026-09-08)
+**Status:** ✅ Accepted (Session 5, 2026-09-08) · **Implemented (Session 7, 2026-09-08)** — see `VAHI-006`/`VAHI-205` in [`21-backlog.md`](21-backlog.md).
 
 **Decision.** A first-time user goes **launch → library → writing**. No account, no sign-in screen, no skip link to hunt for. An account is requested only when the user asks for something that needs one (sync, backup, multi-device) or from Settings → Account.
 

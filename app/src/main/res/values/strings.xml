@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Vahi</string>
+    <string name="tablet_only_title">Vahi works best on a tablet</string>
+    <string name="tablet_only_message">Please open Vahi on a tablet-sized screen to continue.</string>
 </resources>

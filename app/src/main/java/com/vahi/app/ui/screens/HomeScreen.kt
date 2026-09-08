@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -724,10 +726,10 @@ private fun TopBar(
 
         Spacer(Modifier.width(12.dp))
 
-        // Profile Avatar - Circular with colored background
+        // Profile avatar — circular icon button
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .background(Color(0xFFE8D4A8)) // Warm beige background
                 .onGloballyPositioned { coordinates ->
@@ -737,10 +739,11 @@ private fun TopBar(
                 .clickable { onProfile() },
             contentAlignment = Alignment.Center
         ) {
-            // Placeholder bird emoji or icon
-            Text(
-                text = "🐦",
-                fontSize = 20.sp
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Profile",
+                modifier = Modifier.size(24.dp),
+                tint = Color(0xFF5C4A2E)
             )
         }
     }
@@ -818,10 +821,11 @@ private fun ToolbarRow(onCreateNotebook: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Search icon
-                Text(
-                    text = "🔍",
-                    fontSize = 14.sp
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null, // decorative — "Search notebooks..." carries the label
+                    modifier = Modifier.size(16.dp),
+                    tint = VahiTextPlaceholder
                 )
                 Text(
                     text = "Search notebooks...",

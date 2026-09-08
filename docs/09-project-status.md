@@ -24,8 +24,8 @@ Vahi is a **UI prototype with a working ink engine and no data layer**. You can 
 | Persistence | **Notebook metadata only** (Session 6). Ink/strokes still don't persist. |
 | Networking / backend | **Does not exist** |
 | ViewModels / domain / data layers | **`LibraryViewModel` is real** (Session 6) — `BaseViewModel`'s first subclass. Editor/ink side still has none. |
-| Phone support | **Does not exist by design (D2)** — Auth shows an honest message now instead of a debug string (Session 4) |
-| Tests | **None** beyond templates |
+| Phone support | **Does not exist by design (D2)** — the tablet-only message moved from `AuthScreen` to the app shell (`AppRoot.kt`, Session 7), so it now shows before any destination, not just Auth |
+| Tests | **51 tests, all passing** (Session 6) — coordinate model, command history, Room repository |
 
 ---
 
@@ -92,7 +92,7 @@ A tool rail exists (Session 4). Still missing: zoom/pan, pages, selection, shape
 Only the `// Right panel (AI / research later)` comment in dead code.
 
 ### Phone / Compact support
-`AuthFallbackLayout` shows "Vahi works best on a tablet" (rewritten in Session 4) and takes no callback. **Phone users cannot get past the auth screen** — intentional per [D2](22-decisions.md#d2--tablet-only-for-v1). Home and canvas have no Compact layouts either.
+`AppRoot.kt`'s `TabletOnlyFallback()` shows "Vahi works best on a tablet" (moved out of `AuthScreen` in Session 7, since Auth is no longer on the startup path). **Phone users cannot get past this screen** — intentional per [D2](22-decisions.md#d2--tablet-only-for-v1). There are no Compact layouts for Home or canvas to fall through to anyway.
 
 ---
 
@@ -138,10 +138,10 @@ Erased strokes were pushed onto `_undoneStrokes` — the same list used for stro
 
 **Fix applied:** `SplashScreen.kt` now has an `onPlayerError` listener and a 6-second `LaunchedEffect` fallback timer, both guarded by a `hasNavigated` flag so `onTimeout()` fires exactly once regardless of which path triggers it.
 
-### 7. 🟡 PARTIALLY FIXED (Session 4) — Auth was a dead end on phones
+### 7. 🟡 PARTIALLY FIXED (Session 4, moved Session 7) — Auth was a dead end on phones
 Covered above. Decision D2 settled this as tablet-only for v1, so the "dead end" is intentional — but it looked like a bug (`Text("Auth (Mobile)")`, a debug string).
 
-**Fix applied:** `AuthFallbackLayout` now shows an honest "Vahi works best on a tablet" message instead of the debug string. **It still provides no functional path forward on phones**, by design (D2) — building real Compact layouts is deferred until there's a reason.
+**Fix applied:** an honest "Vahi works best on a tablet" message replaced the debug string (Session 4), then moved from `AuthScreen` to the app shell (`AppRoot.kt`'s `TabletOnlyFallback()`, Session 7) once D10 took Auth off the startup path — otherwise phone users would have hit raw tablet UI with no message at all. **It still provides no functional path forward on phones**, by design (D2) — building real Compact layouts is deferred until there's a reason.
 
 ### 8. ✅ FIXED (Session 6) — Blank screen if navigation state desynchronised
 ```kotlin
@@ -282,7 +282,7 @@ Not bugs, but things a reviewer would flag.
 | **Typography scale mostly bypassed** | Screens pass raw `fontSize = 14.sp` instead of `style = MaterialTheme.typography.*`. Only `AuthScreen` uses named styles. |
 | ~~**Duplicate enums**~~ | ✅ **Fixed (Session 6).** `NotebookType` and `CanvasType` were identical, mapped 1:1. `NotebookType` and its adapter file (`NotebookCanvasScreen.kt`) are deleted; `CanvasType` alone survives, now `@Serializable` for use as a navigation route argument. |
 | **String-literal dispatch** | The create-notebook modal routes on `"Blank"` / `"Ruled"` / `"Grid"` / `"Import PDF"` string comparisons. |
-| **Emoji and text glyphs as icons** | 🐦 🔍 ⊞ ≡ ⋮⋮ 🧮 💻 📓 □ ↓ ← G. Render inconsistently across devices and fonts, and are inaccessible to screen readers. |
+| **Emoji and text glyphs as icons** | `⊞ ≡ ⋮⋮ 🧮 💻 📓 □ ↓ ← G` (plus the drawing toolbar's `✒ ⌫ ↶ ↷`, which already carry correct `semantics { contentDescription = ... }` so are visual-only, not an a11y bug). Render inconsistently across devices and fonts. **Fixed (Session 7):** `🐦` and `🔍` — the two that had zero `contentDescription` and were genuinely inaccessible — replaced with `Icons.Default.Person`/`Icons.Default.Search`. The rest deferred to avoid redoing icon work once `VAHI-004` (Figma iconography) lands. |
 | **No content descriptions** | Almost every clickable element passes `contentDescription = null` or is a bare `Text` in a `clickable` `Box`. Accessibility is effectively zero. |
 | **No string extraction** | All UI copy is hardcoded Kotlin. No localisation is possible. |
 | **No `@Preview` functions** | Despite `ui-tooling-preview` being a declared dependency, not one preview exists. |

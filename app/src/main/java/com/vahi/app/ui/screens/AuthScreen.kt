@@ -12,21 +12,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vahi.app.ui.components.WindowClass
-import com.vahi.app.ui.components.windowClass
 import com.vahi.app.ui.theme.*
 
+/**
+ * The app shell (AppRoot) only enters the nav graph — and therefore only reaches
+ * this screen — once `windowClass()` is confirmed Expanded (VAHI-006), so this
+ * composable no longer needs its own size branch.
+ */
 @Composable
 fun AuthScreen(
     onLoginSuccess: () -> Unit = {}
 ) {
-    when (windowClass()) {
-        WindowClass.Expanded -> AuthTabletLayout(onLoginSuccess)
-        else -> AuthFallbackLayout()
-    }
+    AuthTabletLayout(onLoginSuccess)
 }
 
 /* ---------------- TABLET ---------------- */
@@ -263,32 +262,3 @@ private fun VahiStyledField(
     }
 }
 
-/* ---------------- COMPACT / MEDIUM (tablet-only for v1 — decision D2) ---------------- */
-
-@Composable
-private fun AuthFallbackLayout() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "Vahi works best on a tablet",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF333333),
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = "Please open Vahi on a tablet-sized screen to continue.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF666666),
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}

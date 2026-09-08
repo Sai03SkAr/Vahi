@@ -11,13 +11,13 @@
 
 ## Summary
 
-> **Updated end of Session 6 (2026-09-08, implementation — extended pass).** E0 is effectively done. E1/E2/E3 all now have real, working down-payments (navigation, coordinate types, command history, Room+Hilt+a real ViewModel) — sized at "items done" not "epic done," since every remaining item in those epics is still real, substantial work. The extended pass specifically closed the *metadata* half of persistence — notebooks are real; ink is not, and cannot be until `VAHI-101`/`VAHI-110` (wired) land.
+> **Updated Session 7 (2026-09-08).** `VAHI-006` done; `VAHI-205` split (the D10 auth-wall-removal half done, the D11 video-splash half still owner-gated); `VAHI-204` partial (the two glyphs that were genuine accessibility violations — no `contentDescription` at all — fixed; the rest are visual-only and already screen-reader-safe via `semantics`, deferred to avoid redoing icon work once Figma iconography (`VAHI-004`) is read). E1/E2/E3 all now have real, working down-payments (navigation, coordinate types, command history, Room+Hilt+a real ViewModel) — sized at "items done" not "epic done," since every remaining item in those epics is still real, substantial work. The Session 6 extended pass closed the *metadata* half of persistence — notebooks are real; ink is not, and cannot be until `VAHI-101`/`VAHI-110` (wired) land.
 
 | Epic | Theme | Items | Size | Status |
 |---|---|---|---|---|
-| **E0** | Stabilise & de-risk | 9 | ~7 ed | 🟨 7/9 done — `VAHI-004` blocked on the owner, `VAHI-006` blocked on `VAHI-205`/D11 |
+| **E0** | Stabilise & de-risk | 9 | ~7 ed | 🟨 8/9 done — only `VAHI-004` left, blocked on the owner (Figma export) |
 | **E1** | Ink foundation (F1, F2, F5) | 10 | ~17 ed | 🟨 2/10 started — `VAHI-110` (types only, not wired), `VAHI-120` (scoped fix) |
-| **E2** | App foundation + UI rebuild (F3) | 13 | ~24 ed | 🟨 4/13 started — `VAHI-201` (partial), `VAHI-202` (done), `VAHI-206`/`VAHI-207` (partial) |
+| **E2** | App foundation + UI rebuild (F3) | 13 | ~24 ed | 🟨 6/13 started — `VAHI-201` (partial), `VAHI-202` (done), `VAHI-204` (partial), `VAHI-205` (partial), `VAHI-206`/`VAHI-207` (partial) |
 | **E3** | Persistence (F4) | 9 | ~16 ed | 🟨 3/9 started, metadata-only — `VAHI-301`/`VAHI-303`/`VAHI-304` (notebook scope done, page/ink scope untouched, correctly blocked on `VAHI-110` wired + `VAHI-102`) |
 | **E4** | v1.0 completion & release | 14 | ~24 ed | ⬜ |
 | **E5** | v1.1 — PDF & organisation | 7 | ~19 ed | ⬜ |
@@ -92,10 +92,10 @@ VAHI-001 ✅ commit tree
 **Accept:** rules explicit; verified with `bmgr` that notebook data is not backed up.
 **Deps:** none. **Do before** VAHI-301.
 
-### VAHI-006 · Delete the phone dead-end properly ⬜ XS
+### VAHI-006 · Delete the phone dead-end properly ✅ Done (Session 7) · XS
 **Why:** [D10](22-decisions.md#d10--no-auth-wall-account-is-optional-and-requested-in-context) removes the auth wall entirely, which makes `AuthFallbackLayout` moot on the startup path.
-**Do:** move the tablet-only message to the app shell, not to Auth. Auth becomes a Settings-reachable screen only.
-**Deps:** VAHI-201.
+**Done:** the tablet-only message moved to the app shell (`AppRoot.kt`'s new `TabletOnlyFallback()`), checked once via `windowClass()` above the `NavHost` — so it now protects *every* destination (Splash included), not just the one screen that used to check it. `AuthFallbackLayout` deleted from `AuthScreen.kt`. Auth itself has no size branch left; it only ever renders once the shell has already confirmed Expanded.
+**Deps:** VAHI-201. **Verified:** `:app:assembleDebug`, `:app:testDebugUnitTest` both `BUILD SUCCESSFUL`.
 
 ### VAHI-007 · First unit tests: command history ✅ Done, folded into VAHI-120 (Session 6) · S
 **Why:** the best test in the project — pure logic, real edge cases, and the area that was **known** to be wrong (erase and undo shared one stack; drawing after erasing silently made the erase permanent).
@@ -198,16 +198,19 @@ VAHI-001 ✅ commit tree
 **Accept:** dark mode works on every migrated screen; zero `Color(0xFF…)` in migrated files; Devanagari renders identically on T1/T2/T3.
 **Deps:** VAHI-002. **Soft-blocked by:** VAHI-004.
 
-### VAHI-204 · Replace every emoji with real icons ⬜ S
+### VAHI-204 · Replace every emoji with real icons 🟨 2/12 fixed (Session 7) · S
 **Why:** `🐦 🔍 ⊞ ≡ ⋮⋮ 🧮 💻 📓 □ ↓ ← G` render differently per manufacturer, cannot be tinted, and screen readers announce them as "bird" and "abacus".
-**Accept:** `grep` finds no emoji in `.kt`; every icon has a `contentDescription`.
+**Done:** the two that were genuine, unmitigated accessibility violations — `HomeScreen.kt`'s profile avatar (`🐦`, zero semantics) and search-bar icon (`🔍`, zero semantics) — replaced with `Icons.Default.Person`/`Icons.Default.Search` (already in use elsewhere in this codebase, so no new dependency) plus a real `contentDescription`. The profile button's touch target was also bumped 44dp → 48dp while in there.
+**Not done, deliberately:** the other ten (`⊞ ≡ ⋮⋮ 🧮 💻 📓 □ ↓ ← G` and the drawing toolbar's `✒ ⌫ ↶ ↷`) are visual-only — they already carry correct `contentDescription`/`semantics` (verified by reading `ToolbarGlyphToggle`, which sets `semantics { contentDescription = label }`), so a screen reader already announces "Pen tool," not the glyph. Swapping them now risks doing the work twice: [decision V4](22-decisions.md#v4--figma-is-the-visual-source-of-truth-the-docs-describe-behaviour) makes iconography a Figma-owned concern, `VAHI-004` (reading the Figma) is still blocked on the owner, and several of these glyphs (`⊞ ≡ □`, the paper-style icons) don't exist in the core Material icon set — fixing them means either adding `material-icons-extended` or hand-drawn vectors, a real decision better made once actual iconography exists to match. The Google "G" / Apple glyphs are brand wordmarks, not icons, and belong to `AuthScreen`, which is currently off the nav path entirely (`VAHI-006`).
+**Accept (unchanged):** `grep` finds no emoji in `.kt`; every icon has a `contentDescription`.
 **Deps:** VAHI-203.
 
-### VAHI-205 · Kill the auth wall and the splash video ⬜ S
+### VAHI-205 · Kill the auth wall and the splash video 🟨 Split (Session 7) · S
 **Why:** [D10](22-decisions.md#d10--no-auth-wall-account-is-optional-and-requested-in-context), [D11](22-decisions.md#d11--drop-the-video-splash-and-the-media3-dependency). Biggest single time-to-ink win, and removes the largest dependency in the project.
-**Do:** system splash → library. Remove `androidx.media3` and `splash.mp4`. First-launch-only brand animation, skippable.
-**Accept:** warm start → library in < 2 s; `media3` gone; APK smaller.
-**Deps:** VAHI-201. ⏸️ *Confirm the video question with the owner first ([`14-product-spec.md`](14-product-spec.md) Q1).*
+**Done — the D10 half:** `AppRoot.kt`'s `Splash` destination now navigates to `Library` directly on timeout, never to `Auth`. `Auth` stays declared in the nav graph (real UI work, not thrown away) but is unreached by anything until `VAHI-406` gives it a Settings entry point. This alone gets a first-time user to launch → library → writing, which is D10's actual point — it does **not** require resolving D11.
+**Not done — the D11 half, still genuinely owner-gated:** `SplashScreen.kt`'s `ExoPlayer`/`splash.mp4` video was **not touched**. Ripping out `androidx.media3` and the brand video is a product/brand call, not just a technical one, and the backlog has flagged it for the owner since Session 5 — doing it unilaterally would be exactly the kind of decision this project's rules reserve for the owner.
+**Accept (D11 half only, still open):** warm start → library in < 2 s; `media3` gone; APK smaller.
+**Deps:** VAHI-201. ⏸️ *D11's video question still needs the owner ([`14-product-spec.md`](14-product-spec.md) Q1).*
 
 ### VAHI-206 · `LibraryViewModel` + split `HomeScreen.kt` 🟨 ViewModel done, split not done (Session 6) · L
 **Why:** 990 lines, 15 composables, two data classes. **Split it while introducing its ViewModel** — doing the two separately means refactoring the same 990 lines twice.
