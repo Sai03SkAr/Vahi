@@ -58,9 +58,12 @@ data class CardMenuAnchor(
 
 /** New notebooks rotate through this palette rather than all sharing one colour —
  *  there's no colour-picker UI yet (doc 15 §4.5's fuller create-modal design), so
- *  this is the cheapest way new cards don't look identical. */
+ *  this is the cheapest way new cards don't look identical.
+ *
+ *  Stored as ARGB ints because that's what the domain model carries — `Color` is a
+ *  presentation type and stops at this layer (docs/18-architecture-target.md §3). */
 private val notebookColorPalette = listOf(
-    Color(0xFFBABEFF), Color(0xFFD3C3C3), Color(0xFFC4E8D1), Color(0xFFFFE0B2), Color(0xFFB2D8FF)
+    0xFFBABEFF.toInt(), 0xFFD3C3C3.toInt(), 0xFFC4E8D1.toInt(), 0xFFFFE0B2.toInt(), 0xFFB2D8FF.toInt()
 )
 
 /* ---------- SCREEN ---------- */
@@ -259,7 +262,7 @@ fun HomeScreen(
                             coroutineScope.launch {
                                 viewModel.createNotebook(
                                     title = "Untitled notebook",
-                                    color = notebookColorPalette[uiState.notebooks.size % notebookColorPalette.size],
+                                    colorArgb = notebookColorPalette[uiState.notebooks.size % notebookColorPalette.size],
                                     paperStyle = paperStyle
                                 ).onSuccess { notebook ->
                                     onNavigateToCanvas(notebook.id, notebook.paperStyle)
@@ -1005,7 +1008,7 @@ private fun NotebookCard(
         modifier = Modifier
             .size(260.dp, 200.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(notebook.color)
+            .background(Color(notebook.colorArgb)) // ARGB int → Color at the UI boundary
             .clickable { onOpen() }
     ) {
         // Notebook icon in top-left — keyed off paper style, not a title-string

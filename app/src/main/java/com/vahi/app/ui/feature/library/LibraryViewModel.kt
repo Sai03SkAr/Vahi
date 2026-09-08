@@ -1,6 +1,5 @@
 package com.vahi.app.ui.feature.library
 
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewModelScope
 import com.vahi.app.core.model.PaperStyle
 import com.vahi.app.domain.model.Notebook
@@ -44,8 +43,8 @@ class LibraryViewModel @Inject constructor(
     /** Suspends so the caller (HomeScreen) can navigate straight to the new
      *  notebook's editor on success — see the KDoc on `create` in
      *  `NotebookRepository` for why this returns the created [Notebook]. */
-    suspend fun createNotebook(title: String, color: Color, paperStyle: PaperStyle): Result<Notebook> =
-        repository.create(title, color, paperStyle)
+    suspend fun createNotebook(title: String, colorArgb: Int, paperStyle: PaperStyle): Result<Notebook> =
+        repository.create(title, colorArgb, paperStyle)
 
     fun deleteNotebook(id: String) {
         viewModelScope.launch { repository.delete(id) }

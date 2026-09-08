@@ -164,7 +164,7 @@ The four empty `package-info.kt` markers from earlier sessions are gone — repl
 
 | File | Contents |
 |---|---|
-| `domain/model/Notebook.kt` | The domain model — `id`, `title`, `color`, `paperStyle`, timestamps, `isPinned`. Trimmed from doc 17 §2.1's full target (no page/stroke fields — see the KDoc for why). |
+| `domain/model/Notebook.kt` | The domain model — `id`, `title`, `colorArgb` (raw `Int`, not a Compose `Color` — this layer carries no UI-framework dependency), `paperStyle`, timestamps, `isPinned`. Trimmed from doc 17 §2.1's full target (no page/stroke fields — see the KDoc for why). |
 | `domain/repository/NotebookRepository.kt` | Interface: `observeAll`/`observePinned` (`Flow`), `create`/`setPinned`/`delete`/`restore` (`Result`-returning, suspend). |
 | `data/database/entity/NotebookEntity.kt` | Room row — `paperStyle` persisted as its enum *name* via a converter, never an ordinal. |
 | `data/database/Converters.kt` | `PaperStyle` ↔ `String`. |

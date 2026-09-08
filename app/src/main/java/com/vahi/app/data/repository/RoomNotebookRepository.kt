@@ -1,7 +1,5 @@
 package com.vahi.app.data.repository
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import com.vahi.app.core.model.PaperStyle
 import com.vahi.app.data.database.dao.NotebookDao
 import com.vahi.app.data.database.entity.NotebookEntity
@@ -26,13 +24,13 @@ class RoomNotebookRepository @Inject constructor(
     override fun observePinned(): Flow<List<Notebook>> =
         dao.observePinned().map { entities -> entities.map { it.toDomain() } }
 
-    override suspend fun create(title: String, color: Color, paperStyle: PaperStyle): Result<Notebook> =
+    override suspend fun create(title: String, colorArgb: Int, paperStyle: PaperStyle): Result<Notebook> =
         runCatching {
             val now = System.currentTimeMillis()
             val entity = NotebookEntity(
                 id = Notebook.newId(),
                 title = title,
-                colorArgb = color.toArgb(),
+                colorArgb = colorArgb,
                 paperStyle = paperStyle,
                 createdAt = now,
                 updatedAt = now
@@ -54,7 +52,7 @@ class RoomNotebookRepository @Inject constructor(
 private fun NotebookEntity.toDomain(): Notebook = Notebook(
     id = id,
     title = title,
-    color = Color(colorArgb),
+    colorArgb = colorArgb,
     paperStyle = paperStyle,
     createdAt = createdAt,
     updatedAt = updatedAt,

@@ -1,7 +1,5 @@
 package com.vahi.app.data.repository
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.vahi.app.core.model.PaperStyle
@@ -44,7 +42,7 @@ class RoomNotebookRepositoryTest {
 
     @Test
     fun `create persists a notebook that observeAll then returns`() = runTest {
-        val result = repository.create("Maths notes", Color(0xFFBABEFF), PaperStyle.RULED)
+        val result = repository.create("Maths notes", 0xFFBABEFF.toInt(), PaperStyle.RULED)
         assertTrue(result.isSuccess)
 
         val notebooks = repository.observeAll().first()
@@ -55,7 +53,7 @@ class RoomNotebookRepositoryTest {
 
     @Test
     fun `observeAll excludes soft-deleted notebooks`() = runTest {
-        val notebook = repository.create("Physics", Color.Red, PaperStyle.BLANK).getOrThrow()
+        val notebook = repository.create("Physics", 0xFFFF0000.toInt(), PaperStyle.BLANK).getOrThrow()
 
         repository.delete(notebook.id)
 
@@ -64,7 +62,7 @@ class RoomNotebookRepositoryTest {
 
     @Test
     fun `restore brings a soft-deleted notebook back — the Undo snackbar's mechanism`() = runTest {
-        val notebook = repository.create("Chemistry", Color.Blue, PaperStyle.GRID).getOrThrow()
+        val notebook = repository.create("Chemistry", 0xFF0000FF.toInt(), PaperStyle.GRID).getOrThrow()
         repository.delete(notebook.id)
 
         repository.restore(notebook.id)
@@ -76,7 +74,7 @@ class RoomNotebookRepositoryTest {
 
     @Test
     fun `setPinned updates isPinned and observePinned reflects it`() = runTest {
-        val notebook = repository.create("Biology", Color.Green, PaperStyle.BLANK).getOrThrow()
+        val notebook = repository.create("Biology", 0xFF00FF00.toInt(), PaperStyle.BLANK).getOrThrow()
         assertTrue(repository.observePinned().first().isEmpty())
 
         repository.setPinned(notebook.id, true)
@@ -88,7 +86,7 @@ class RoomNotebookRepositoryTest {
 
     @Test
     fun `unpinning removes it from observePinned but leaves it in observeAll`() = runTest {
-        val notebook = repository.create("History", Color.Yellow, PaperStyle.BLANK).getOrThrow()
+        val notebook = repository.create("History", 0xFFFFFF00.toInt(), PaperStyle.BLANK).getOrThrow()
         repository.setPinned(notebook.id, true)
 
         repository.setPinned(notebook.id, false)
@@ -99,9 +97,9 @@ class RoomNotebookRepositoryTest {
 
     @Test
     fun `observeAll orders by most recently updated first`() = runTest {
-        val first = repository.create("First", Color.Red, PaperStyle.BLANK).getOrThrow()
+        val first = repository.create("First", 0xFFFF0000.toInt(), PaperStyle.BLANK).getOrThrow()
         Thread.sleep(5) // ensure a distinct updatedAt millisecond
-        val second = repository.create("Second", Color.Blue, PaperStyle.BLANK).getOrThrow()
+        val second = repository.create("Second", 0xFF0000FF.toInt(), PaperStyle.BLANK).getOrThrow()
 
         val notebooks = repository.observeAll().first()
         assertEquals(listOf(second.id, first.id), notebooks.map { it.id })
@@ -109,9 +107,9 @@ class RoomNotebookRepositoryTest {
 
     @Test
     fun `pinning a notebook bumps it to the top of observeAll too`() = runTest {
-        val first = repository.create("Older", Color.Red, PaperStyle.BLANK).getOrThrow()
+        val first = repository.create("Older", 0xFFFF0000.toInt(), PaperStyle.BLANK).getOrThrow()
         Thread.sleep(5)
-        repository.create("Newer", Color.Blue, PaperStyle.BLANK).getOrThrow()
+        repository.create("Newer", 0xFF0000FF.toInt(), PaperStyle.BLANK).getOrThrow()
 
         repository.setPinned(first.id, true) // touches updatedAt
 
@@ -120,17 +118,19 @@ class RoomNotebookRepositoryTest {
 
     @Test
     fun `colour round-trips exactly through ARGB storage`() = runTest {
-        val original = Color(0xFF7C4DFF)
+        // Deliberately a value with a set alpha channel and a high bit in each
+        // component — a naive Int/Long conversion would corrupt this one.
+        val original = 0xFF7C4DFF.toInt()
         repository.create("Colour check", original, PaperStyle.BLANK)
 
-        val stored = repository.observeAll().first().first().color
+        val stored = repository.observeAll().first().first().colorArgb
 
-        assertEquals(original.toArgb(), stored.toArgb())
+        assertEquals(original, stored)
     }
 
     @Test
     fun `deleting an already-deleted notebook is harmless`() = runTest {
-        val notebook = repository.create("Redundant delete", Color.Gray, PaperStyle.BLANK).getOrThrow()
+        val notebook = repository.create("Redundant delete", 0xFF888888.toInt(), PaperStyle.BLANK).getOrThrow()
         repository.delete(notebook.id)
 
         val result = repository.delete(notebook.id)

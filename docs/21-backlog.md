@@ -273,7 +273,7 @@ VAHI-001 ✅ commit tree
 
 ### VAHI-303 · Repository layer 🟨 NotebookRepository done; ink-related repositories not started · M
 **Do:** the interfaces in [`17-data-spec.md`](17-data-spec.md) §9, `Result`-returning, `Flow`-observing, with viewport-aware `loadStrokes`.
-**Done:** `domain/repository/NotebookRepository.kt` (interface) + `data/repository/RoomNotebookRepository.kt` (impl) — trimmed from doc 17 §9's full contract (no folders, no duplicate, no purge scheduling; add when the UI that needs them exists). `domain/` has zero Android imports, verified by reading every file in it. No Room entity appears in any composable signature — `HomeScreen.kt` only imports `domain.model.Notebook`.
+**Done:** `domain/repository/NotebookRepository.kt` (interface) + `data/repository/RoomNotebookRepository.kt` (impl) — trimmed from doc 17 §9's full contract (no folders, no duplicate, no purge scheduling; add when the UI that needs them exists). `domain/` has zero Android imports — verified by `grep`, after a self-audit caught that it originally carried `androidx.compose.ui.graphics.Color` (a UI type in the domain layer, contradicting the very KDoc on `NotebookRepository`). Fixed by moving to a raw ARGB `Int`, which also removed a pointless `Color`↔`Int` round-trip since the Room column was already an int; `HomeScreen` converts at the UI boundary. No Room entity appears in any composable signature — `HomeScreen.kt` only imports `domain.model.Notebook`.
 **Not done:** `PageRepository`, `InkRepository` — wait on `VAHI-301`'s full scope and `VAHI-302`.
 **Deps:** VAHI-301 (metadata scope) — done for `NotebookRepository`. Full scope: VAHI-301 (full), VAHI-302.
 

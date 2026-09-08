@@ -1,6 +1,5 @@
 package com.vahi.app.domain.repository
 
-import androidx.compose.ui.graphics.Color
 import com.vahi.app.core.model.PaperStyle
 import com.vahi.app.domain.model.Notebook
 import kotlinx.coroutines.flow.Flow
@@ -25,8 +24,9 @@ interface NotebookRepository {
     fun observePinned(): Flow<List<Notebook>>
 
     /** Creates and persists a new notebook, returning it (its generated ID is
-     *  needed by the caller to navigate straight into the editor). */
-    suspend fun create(title: String, color: Color, paperStyle: PaperStyle): Result<Notebook>
+     *  needed by the caller to navigate straight into the editor).
+     *  [colorArgb] is a raw ARGB int — see the note on [Notebook.colorArgb]. */
+    suspend fun create(title: String, colorArgb: Int, paperStyle: PaperStyle): Result<Notebook>
 
     suspend fun setPinned(id: String, pinned: Boolean): Result<Unit>
 

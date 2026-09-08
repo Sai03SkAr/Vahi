@@ -399,7 +399,7 @@ The corrected picture: **the differentiator ports; the ink *engine* does not.**
 
 | Ports as-is | Mechanical migration | Needs a second implementation |
 |---|---|---|
-| `core/model/`, `domain/` (both already Android-free — proven by their tests needing no Robolectric), `kotlinx.serialization`, Compose UI | Room (real KMP support via `androidx.sqlite`), `navigation-compose` (different coordinate), DataStore | **Hilt → Koin**, **`androidx.ink` → PencilKit**, `androidx.pdf` → PDFKit, Media3 → AVFoundation (moot under [D11](#d11--drop-the-video-splash-and-the-media3-dependency)) |
+| `core/model/` (Android-free — its 24 tests run with no Robolectric, which is the proof) and `domain/` (Android-free by inspection; it has no tests of its own yet), `kotlinx.serialization`, Compose UI | Room (real KMP support via `androidx.sqlite`), `navigation-compose` (different coordinate), DataStore | **Hilt → Koin**, **`androidx.ink` → PencilKit**, `androidx.pdf` → PDFKit, Media3 → AVFoundation (moot under [D11](#d11--drop-the-video-splash-and-the-media3-dependency)) |
 
 **The genuinely hard part: `androidx.ink` is Android-only, with no iOS build announced.** iOS needs a second ink engine on Apple's **PencilKit** — the most latency-critical, most complex component in the product, built twice on entirely different APIs. The `InkEngine` interface in [`18-architecture-target.md`](18-architecture-target.md) §3.1 is the right shape to contain this (it was designed for a different swap and happens to fit), which keeps it architecturally clean without making it cheap. Notably, PencilKit gives iOS palm rejection, pressure and low latency *for free* — bug #14, currently the worst open defect on Android, largely doesn't exist there.
 
