@@ -11,20 +11,22 @@
 
 ## Summary
 
-> **Updated end of Session 6 (2026-09-08, implementation).** E0 is effectively done. E2 and E1 have real down-payments (navigation, coordinate types, command history) — sized at "items done" not "epic done," since each remaining item in those epics is still its own real piece of work.
+> **Updated end of Session 6 (2026-09-08, implementation — extended pass).** E0 is effectively done. E1/E2/E3 all now have real, working down-payments (navigation, coordinate types, command history, Room+Hilt+a real ViewModel) — sized at "items done" not "epic done," since every remaining item in those epics is still real, substantial work. The extended pass specifically closed the *metadata* half of persistence — notebooks are real; ink is not, and cannot be until `VAHI-101`/`VAHI-110` (wired) land.
 
 | Epic | Theme | Items | Size | Status |
 |---|---|---|---|---|
 | **E0** | Stabilise & de-risk | 9 | ~7 ed | 🟨 7/9 done — `VAHI-004` blocked on the owner, `VAHI-006` blocked on `VAHI-205`/D11 |
-| **E1** | Ink foundation (F1, F2, F5) | 10 | ~17 ed | 🟨 2/10 started — `VAHI-110` (types only), `VAHI-120` (scoped fix) |
-| **E2** | App foundation + UI rebuild (F3) | 13 | ~24 ed | 🟨 1/13 done — `VAHI-201` (partial) |
-| **E3** | Persistence (F4) | 9 | ~16 ed | ⬜ Not started — correctly blocked on `VAHI-110`/`VAHI-102` |
+| **E1** | Ink foundation (F1, F2, F5) | 10 | ~17 ed | 🟨 2/10 started — `VAHI-110` (types only, not wired), `VAHI-120` (scoped fix) |
+| **E2** | App foundation + UI rebuild (F3) | 13 | ~24 ed | 🟨 4/13 started — `VAHI-201` (partial), `VAHI-202` (done), `VAHI-206`/`VAHI-207` (partial) |
+| **E3** | Persistence (F4) | 9 | ~16 ed | 🟨 3/9 started, metadata-only — `VAHI-301`/`VAHI-303`/`VAHI-304` (notebook scope done, page/ink scope untouched, correctly blocked on `VAHI-110` wired + `VAHI-102`) |
 | **E4** | v1.0 completion & release | 14 | ~24 ed | ⬜ |
 | **E5** | v1.1 — PDF & organisation | 7 | ~19 ed | ⬜ |
 | **E6** | v1.2 — Recognition & search | 6 | ~14 ed | ⬜ |
 | **E7** | v2.0 — Accounts & sync | 7 | ~33 ed | ⬜ |
 
-**To v1.0 release: ≈ 88 engineering-days** at the estimates above; Session 6 closed roughly 5–6 ed of that. Multiply by your own throughput and a focus factor of 0.6–0.7 for a calendar estimate.
+**To v1.0 release: ≈ 88 engineering-days** at the estimates above; Session 6 (both passes) closed roughly 9–10 ed of that. Multiply by your own throughput and a focus factor of 0.6–0.7 for a calendar estimate.
+
+**A milestone worth naming: the app now has its first real, persisted, end-to-end user-visible loop** — create a notebook, see it in the library, close and reopen the app, it's still there, open it, delete it, undo the delete. That loop did not exist at the start of this session. It is *not* the doc 11 "nothing is lost" milestone (`VAHI-305`) — that one is specifically about ink, and ink is still not persisted — but it is real progress of the same kind.
 
 ### The critical path
 
@@ -185,8 +187,9 @@ VAHI-001 ✅ commit tree
 **Accept (partial):** rotation preserves the current destination and its arguments — verified by reading the `NavHost`/`rememberNavController` wiring; **not yet verified on a device** (`VAHI-008`). `CanvasState` itself is still `remember`-scoped, so ink is still lost on rotation (bug #1 unchanged) — this item only fixed the *navigation* half of that bug, not the *canvas state* half; the second half is `VAHI-110`/`VAHI-301`.
 **Deps:** VAHI-002. **Verified:** `:app:assembleDebug`, `:app:testDebugUnitTest` both `BUILD SUCCESSFUL`.
 
-### VAHI-202 · Hilt + `VahiApplication` ⬜ S
-**Deps:** VAHI-002. **Blocks:** VAHI-301.
+### VAHI-202 · Hilt + `VahiApplication` ✅ Done (Session 6) · S
+**Done:** `VahiApplication` (`@HiltAndroidApp`), `MainActivity` (`@AndroidEntryPoint`), `di/DatabaseModule.kt` (provides `VahiDatabase`/`NotebookDao`), `di/RepositoryModule.kt` (`@Binds NotebookRepository`). Built alongside a real repository rather than as empty scaffolding — see the note in `CLAUDE.md` about not adding DI with nothing to inject.
+**Deps:** VAHI-002. **Blocked:** VAHI-301 (now unblocked, metadata scope).
 
 ### VAHI-203 · Design-system foundations ⬜ M
 **Do:** [`13-visual-design-system.md`](13-visual-design-system.md) §3.1 two-layer tokens · spacing constants · shape standardisation · bundled Noto ([V2](22-decisions.md#v2--font-family-noto-sans--noto-sans-devanagari)) · a `ui/designsystem/` component set.
@@ -204,15 +207,16 @@ VAHI-001 ✅ commit tree
 **Accept:** warm start → library in < 2 s; `media3` gone; APK smaller.
 **Deps:** VAHI-201. ⏸️ *Confirm the video question with the owner first ([`14-product-spec.md`](14-product-spec.md) Q1).*
 
-### VAHI-206 · `LibraryViewModel` + split `HomeScreen.kt` ⬜ L
+### VAHI-206 · `LibraryViewModel` + split `HomeScreen.kt` 🟨 ViewModel done, split not done (Session 6) · L
 **Why:** 990 lines, 15 composables, two data classes. **Split it while introducing its ViewModel** — doing the two separately means refactoring the same 990 lines twice.
-**Do:** feature package per [`18-architecture-target.md`](18-architecture-target.md) §2; one parameterised `VahiDropdownMenu` replacing the three near-identical menus; exhaustive `phase`.
-**Accept:** no file over 300 lines; every composable stateless and previewable.
+**Done:** `LibraryViewModel` exists (`ui/feature/library/`) — `BaseViewModel`'s first real subclass — backed by `NotebookRepository`, collected via `hiltViewModel()` directly inside `HomeScreen`. `HomeScreen.kt` now shows real, persisted notebooks.
+**Not done:** the file split. `HomeScreen.kt` is still one file (~870 lines, similar order of magnitude), and `HomeScreen` calls `hiltViewModel()` itself rather than through a separate stateless-composable + thin-Route wrapper (doc 18 §4's fuller pattern). This was a deliberate proportionality call, documented in `LibraryViewModel.kt`'s KDoc — restructuring the whole file was more than this pass's scope warranted alongside standing up Room+Hilt+the ViewModel for the first time. **Revisit this item, don't mark it done.**
 **Deps:** VAHI-201, VAHI-202, VAHI-301.
 
-### VAHI-207 · Library rewrite ⬜ L
-**Do:** [`15-ux-blueprint.md`](15-ux-blueprint.md) §4 — thumbnails, "Jump back in", real search field, working filters/sort/view-mode, `+ New` out of the grid, properly anchored card menu with real actions, colour as a 3 dp accent bar, "Edited 2h ago".
-**Accept:** every visible control does something; card menus anchor to their own card.
+### VAHI-207 · Library rewrite 🟨 Partially done (Session 6) · L
+**Why:** every control was a no-op against two hardcoded notebooks.
+**Done:** create persists and opens the new notebook; the grid shows real data; tapping an existing card opens it (a capability that **did not exist at all** before, on any hardcoded data); delete is soft with an "Undo" snackbar (rule 5, doc 15); pin/unpin works and "Pinned notes" filters for real; "Edited Xh ago" relative time replaces the creation-date string; the notebook icon is keyed off paper style instead of a title-string heuristic tied to sample data that no longer exists; card menu items pair a real action per item instead of all five dismissing identically.
+**Not done:** thumbnails (doc 15 §4.1 — needs page rendering, which needs the ink engine decision), "Jump back in" row, real search, sort selector (though results already come back sorted by `updatedAt DESC`, so the existing "Most recent" label is at least honest), grid/list view toggle, colour-as-accent-bar (cards still use full-card fill), empty states (doc 15 §4.4 — still just the "+ New" tile).
 **Deps:** VAHI-206.
 
 ### VAHI-208 · Empty, loading and error states ⬜ M
@@ -250,26 +254,31 @@ VAHI-001 ✅ commit tree
 
 ## E3 — Persistence (F4)
 
-> ⚠️ **Nothing in this epic may start before `VAHI-110` is complete.**
+> ⚠️ **Stroke/ink geometry may not be persisted before `VAHI-110` is wired into the canvas** (types existing isn't enough — see `VAHI-110`'s own status). **Notebook *metadata* has no such constraint** — it carries no coordinate-space data at all, so it was safe to build ahead of the ink decision. That's what Session 6 did; see `VAHI-301` below for the exact scope split.
 
-### VAHI-301 · Room schema, DAOs, migrations ⬜ L
-**Do:** [`17-data-spec.md`](17-data-spec.md) §2 — entities, indexed bounding boxes, string-persisted enums, `exportSchema = true` with schemas committed, `fallbackToDestructiveMigration` banned in release.
-**Accept:** instrumented DAO tests; a migration test harness exists even at version 1.
-**Deps:** VAHI-110, VAHI-202, VAHI-005.
+### VAHI-301 · Room schema, DAOs, migrations 🟨 Notebook metadata done; Page/Stroke not started · L
+**Do:** [`17-data-spec.md`](17-data-spec.md) §2 — entities, indexed bounding boxes, string-persisted enums, `fallbackToDestructiveMigration` banned in release.
+**Done (Session 6), notebook metadata only:** `NotebookEntity` (id, title, colorArgb, paperStyle, timestamps, `isPinned`, `deletedAt` tombstone), `Converters` (enum-by-name, not ordinal), `NotebookDao`, `VahiDatabase`. 9 Robolectric tests against a real in-memory database (`RoomNotebookRepositoryTest.kt`) — ordering, the tombstone filter, restore, pin/unpin, ARGB round-trip.
+**Deliberately not done:** `PageEntity`, `StrokeIndexEntity` — these carry page-space coordinates and are exactly what the hard rule protects; they wait on `VAHI-110` actually being wired into the canvas and the `androidx.ink` decision (`VAHI-101`/D6).
+**Also not done, and flagged rather than silently skipped:** `exportSchema = true`. Room 2.8.4's schema re-validation throws a reproducible `AbstractMethodError` against this project's kotlinx.serialization toolchain when re-reading an already-exported schema JSON — confirmed with a fresh Kotlin daemon and with `kotlinx-serialization-core` forced to both 1.7.3 and 1.8.1, so it's a genuine upstream incompatibility, not a resolvable local version clash. Zero functional cost at schema v1 with no migrations yet; see the comment in `app/build.gradle.kts`. **Re-enable before shipping any real schema change** (docs/17-data-spec.md R4) — either Room will have a fix, or re-litigate the Room version then.
+**Accept (metadata scope):** DAO tests against a real database — done. Migration test harness — not needed yet at v1 with no migrations.
+**Deps:** VAHI-002, VAHI-202, VAHI-005 — done. **Full scope still deps on:** VAHI-110 (wired), VAHI-101/102.
 
 ### VAHI-302 · `InkFileStore` and the `.ink` format ⬜ L
 **Do:** [`17-data-spec.md`](17-data-spec.md) §3 — header with `formatVersion` and `engineId`, temp-file + fsync + atomic rename, debounced writes, compaction.
 **Accept:** round-trip tests; a kill -9 mid-write never produces a truncated file.
-**Deps:** VAHI-301, VAHI-102.
+**Deps:** VAHI-301 (full scope), VAHI-102.
 
-### VAHI-303 · Repository layer ⬜ M
+### VAHI-303 · Repository layer 🟨 NotebookRepository done; ink-related repositories not started · M
 **Do:** the interfaces in [`17-data-spec.md`](17-data-spec.md) §9, `Result`-returning, `Flow`-observing, with viewport-aware `loadStrokes`.
-**Accept:** `domain/` has zero Android imports; no Room entity appears in any composable signature.
-**Deps:** VAHI-301, VAHI-302.
+**Done:** `domain/repository/NotebookRepository.kt` (interface) + `data/repository/RoomNotebookRepository.kt` (impl) — trimmed from doc 17 §9's full contract (no folders, no duplicate, no purge scheduling; add when the UI that needs them exists). `domain/` has zero Android imports, verified by reading every file in it. No Room entity appears in any composable signature — `HomeScreen.kt` only imports `domain.model.Notebook`.
+**Not done:** `PageRepository`, `InkRepository` — wait on `VAHI-301`'s full scope and `VAHI-302`.
+**Deps:** VAHI-301 (metadata scope) — done for `NotebookRepository`. Full scope: VAHI-301 (full), VAHI-302.
 
-### VAHI-304 · Notebook and page CRUD ⬜ M
-**Accept:** creating a notebook actually creates one and the library reflects it; the hardcoded two-item list is gone; add/insert/delete/reorder pages all work and are undoable.
-**Deps:** VAHI-303.
+### VAHI-304 · Notebook and page CRUD 🟨 Notebook CRUD done; page CRUD not started (no page concept exists yet) · M
+**Done:** creating a notebook actually creates one and the library reflects it — the hardcoded two-item list is gone. Delete (soft, undoable), pin/unpin also work. This closes the exact gap doc 09's original audit called out: *"Creating a notebook does not create anything — it navigates straight to a blank canvas. The new notebook never appears in the library."* That sentence is no longer true.
+**Not done:** page-level CRUD (add/insert/delete/reorder). There is currently no multi-page concept in the UI at all — one notebook still means one canvas, exactly as before. Real pages are `VAHI-401`, gated on the paged model actually landing in the editor.
+**Deps:** VAHI-303 (metadata scope) — done for notebooks.
 
 ### VAHI-305 · ★★ Autosave — *the milestone that matters* ⬜ M
 **Why:** *draw → close the app → reopen → the ink is still there.* **Everything before this is a demo; everything after it is a product.**

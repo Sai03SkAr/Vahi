@@ -158,16 +158,24 @@ The first package built directly onto the target shape in [`18-architecture-targ
 
 ---
 
-## `domain/` and `data/` — ⚠️ empty skeletons
+## `domain/` and `data/` — ✅ real, as of Session 6 (notebook metadata scope)
 
-Four files, each three lines (two comments + a `package` declaration):
+The four empty `package-info.kt` markers from earlier sessions are gone — replaced with real content, and renamed to match the singular naming in [`18-architecture-target.md`](18-architecture-target.md) §2 (`domain/models` → `domain/model`, `domain/usecases` → `domain/usecase`, the latter still empty; `data/datasource` deleted, unused).
 
-| File | Declared intent |
+| File | Contents |
 |---|---|
-| `domain/models/package-info.kt` | "will contain domain model entities" |
-| `domain/usecases/package-info.kt` | "will contain use case implementations" |
-| `data/repository/package-info.kt` | "will contain repository implementations" |
-| `data/datasource/package-info.kt` | "will contain data source implementations (local/remote)" |
+| `domain/model/Notebook.kt` | The domain model — `id`, `title`, `color`, `paperStyle`, timestamps, `isPinned`. Trimmed from doc 17 §2.1's full target (no page/stroke fields — see the KDoc for why). |
+| `domain/repository/NotebookRepository.kt` | Interface: `observeAll`/`observePinned` (`Flow`), `create`/`setPinned`/`delete`/`restore` (`Result`-returning, suspend). |
+| `data/database/entity/NotebookEntity.kt` | Room row — `paperStyle` persisted as its enum *name* via a converter, never an ordinal. |
+| `data/database/Converters.kt` | `PaperStyle` ↔ `String`. |
+| `data/database/dao/NotebookDao.kt` | Flow-returning queries; the tombstone (`deletedAt`) filter lives here. |
+| `data/database/VahiDatabase.kt` | `@Database(version = 1, exportSchema = false)` — see the note on why `exportSchema` is off for now, in `app/build.gradle.kts` and `21-backlog.md` `VAHI-301`. |
+| `data/repository/RoomNotebookRepository.kt` | The only class that knows notebooks are backed by Room. `Color` ↔ ARGB `Int` mapping lives here. |
+| `di/DatabaseModule.kt`, `di/RepositoryModule.kt` | Hilt: provides `VahiDatabase`/`NotebookDao`; binds `NotebookRepository` → `RoomNotebookRepository`. |
+| `ui/feature/library/LibraryViewModel.kt` | `BaseViewModel`'s first real subclass. `LibraryUiState` lives in the same file. |
+| `VahiApplication.kt` (root) | `@HiltAndroidApp` — Hilt's entry point. |
+
+**Still empty:** `domain/usecase/` — no use case has real logic beyond a single repository call yet, and per doc 18 §3, ceremony-only use cases aren't worth writing.
 
 ---
 
@@ -208,16 +216,16 @@ Four files, each three lines (two comments + a `package` declaration):
 
 ## Quick counts
 
-Re-counted at the end of Session 6 (2026-09-08) via `find` and `wc -l`, after the navigation rewrite and the new `core/model/` package.
+Re-counted at the very end of Session 6 (2026-09-08) via `find` and `wc -l`, after both the navigation-rewrite pass and the extended Room+Hilt+persistence pass.
 
 | Metric | Value |
 |---|---|
-| Kotlin source files (main) | 26 (`AppDestination.kt`, `NotebookCanvasScreen.kt` deleted; `core/model/`'s 3 files added; net since Session 5: +1) |
-| Kotlin test files | 7 (`CanvasStateTest.kt`, `CanvasStateUndoRedoTest.kt` + `core/model/`'s 3 test files) |
-| Lines of Kotlin (main + test) | 3,753 |
-| Largest file | `HomeScreen.kt`, 990 lines — still the strongest candidate for a split, deferred to ride along with its ViewModel (`VAHI-206`) |
-| `@Composable` functions | 36 (verified via `grep -c`) |
-| Enums | 3 (`CanvasType` — now `@Serializable` — `ToolType`, `WindowClass`; `AppDestination` and `NotebookType` deleted this session) |
-| Data classes | 9 (`Notebook`, `CardMenuAnchor`, `Stroke`; `core/model`'s `ScreenPoint`, `DocumentPoint`, `DocumentOffset`, `PagePoint`, `PageSize`, `ViewTransform`, added Session 6) |
-| Non-composable classes | 2 (`CanvasState`, `BaseViewModel`) |
-| Files that are dead or empty | 4 × `package-info.kt` marker files. `BaseViewModel.kt` is written but still has no subclass — kept out of the "dead" count since it's a deliberate placeholder, not an oversight. |
+| Kotlin source files (main) | 34 |
+| Kotlin test files | 8 (adds `RoomNotebookRepositoryTest.kt` to the Session 6 total) |
+| Lines of Kotlin (main + test) | 4,371 |
+| Largest file | `HomeScreen.kt`, ~870 lines — still not split; see `VAHI-206`'s honest status |
+| Enums | 3 (`PaperStyle` — renamed from `CanvasType`, moved to `core/model`, `@Serializable` — `ToolType`, `WindowClass`) |
+| Data classes | 10 (`CardMenuAnchor`, `Stroke`; `core/model`'s 6; `domain/model/Notebook`, `LibraryUiState`) |
+| Non-composable classes | 6 (`CanvasState`, `BaseViewModel`, `LibraryViewModel`, `RoomNotebookRepository`, `Converters`, `VahiDatabase`) |
+| Hilt-managed classes | 4 (`VahiApplication`, `DatabaseModule`, `RepositoryModule`, `LibraryViewModel`) |
+| Files that are dead or empty | 1 (`domain/usecase/` has no content yet — no use case has real logic beyond a single repository call). `BaseViewModel.kt` no longer counts — it has a real subclass now. |

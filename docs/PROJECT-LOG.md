@@ -8,6 +8,52 @@ Purpose: if a session ends abruptly or a usage limit is hit, the next session re
 
 ---
 
+## 2026-09-08 — Session 6, extended pass: Persistence foundation (Room + Hilt) and the iOS/cross-platform question
+
+**Requested:** "do whatever is left to complete the project, then do the Hilt part, tell me if I need to do anything, then tell me when done" — followed, mid-work, by a request to research and report on iOS and cross-device (phone/iPad/tablet) support.
+
+### Done
+
+**A real persistence foundation, scoped deliberately to notebook metadata only:**
+
+- **`core/model/PaperStyle.kt`** — relocated `CanvasType` out of `ui/screens/CanvasScaffold.kt` (renamed to match the product's own vocabulary) so Room entities and the domain layer don't depend on a UI-layer type. Updated every call site (`HomeScreen.kt`, `AppRoot.kt`).
+- **`domain/model/Notebook.kt`**, **`domain/repository/NotebookRepository.kt`** — the domain layer, trimmed from the full target schema in `17-data-spec.md` §2.1/§9 to exactly what the library screen needed. Renamed the pre-existing empty `domain/models`/`domain/usecases` marker packages to singular `domain/model`/`domain/usecase`, matching `18-architecture-target.md`'s target shape.
+- **`data/database/`** (`NotebookEntity`, `Converters`, `NotebookDao`, `VahiDatabase`) and **`data/repository/RoomNotebookRepository.kt`** — Room, with the enum-persisted-as-name rule and soft-delete tombstones from `17-data-spec.md` followed from the first row written.
+- **`di/DatabaseModule.kt`, `di/RepositoryModule.kt`, `VahiApplication.kt`** — Hilt, built *with* a real repository to inject rather than as empty scaffolding (`VAHI-202`).
+- **`ui/feature/library/LibraryViewModel.kt`** — `BaseViewModel`'s first real subclass, after sitting unused since before Session 1.
+- **`HomeScreen.kt` rewired** to real data: create persists and opens the new notebook; the grid shows real notebooks; **tapping an existing card now opens it — a capability that did not exist at all before**, on any data; delete is soft with an "Undo" snackbar; pin/unpin works and "Pinned notes" actually filters; "Edited Xh ago" relative time replaces the creation-date string.
+- **`AppRoot.kt`** — the `Editor` route now carries `notebookId` alongside `canvasType`, threaded through to `CanvasScreen` for future use (ink still isn't persisted, so nothing reads it yet — documented as such rather than silently unused).
+
+**9 new Robolectric tests** (`RoomNotebookRepositoryTest.kt`) against a real in-memory database — ordering, the tombstone filter, restore, pin/unpin, ARGB colour round-trip. **51 tests total, all passing.**
+
+### A real build problem, worth recording in detail
+
+Adding Room + KSP produced a reproducible `java.lang.AbstractMethodError` (`FieldBundle$$serializer` / `typeParametersSerializers()`) the moment KSP re-read an already-exported schema JSON — a genuine upstream incompatibility between Room 2.8.4's bundled schema-bundle classes and this toolchain's `kotlinx.serialization`, not a resolvable local version clash (confirmed by forcing `kotlinx-serialization-core` to both 1.7.3 and 1.8.1, and by killing a long-lived `KotlinCompileDaemon` process that survives `./gradlew --stop` — neither fixed it). It's deterministic on a full `clean` rebuild with a same-version schema file already present, and does **not** affect normal incremental builds. Disabled `exportSchema` for now (zero functional cost at schema v1 with no migrations to validate against); flagged clearly in `app/build.gradle.kts`, `VahiDatabase.kt`, and `21-backlog.md` `VAHI-301` to re-enable before any real schema v2 ships. Also hit, and worked around: `androidx.hilt:hilt-navigation-compose:1.4.0` requires compileSdk 37/AGP 9.1+ — pinned to 1.3.0, which doesn't.
+
+**Verified stable, not just "passed once":** two independent `./gradlew clean` builds from freshly-killed Gradle *and* Kotlin daemons both succeeded.
+
+### The iOS / cross-platform question — researched, not implemented
+
+Mid-session the owner asked whether Vahi should also work on iOS and on phones/iPads, not just Android tablets. Researched thoroughly rather than answered from assumption; written up in full as **decision D17** in `22-decisions.md` (status: **Open** — genuinely the owner's call). Summary of what changes the answer:
+
+- Kotlin Multiplatform + Compose Multiplatform (stable since 1.8.0, May 2025) is the right path *if* this is pursued — not Flutter, not a rewrite. Much of what was built this session (`core/model/`, `domain/`, Room via `androidx.sqlite`, `kotlinx.serialization`) already has real multiplatform support.
+- Hilt does not — Koin is the multiplatform-standard replacement. A real migration, not a recompile.
+- **The decisive finding: `androidx.ink` — the library D6 recommends adopting — is confirmed Android-only, with no iOS path.** The ink engine, the single most complex and differentiating part of the app, would need a **second, fully separate implementation** on Apple's PencilKit. The `InkEngine` interface already designed in `18-architecture-target.md` happens to be the right shape to contain this, but that doesn't make building a second engine cheap.
+- This also directly reopens D2 (tablet-only) and D3 (Android-tablet, Indic-recognition thesis) — both confirmed decisions. Verified market/latency data (Apple PencilKit: consistent 22–28 ms; real-world Android stylus testing: 41–69 ms with high variance; India tablet share: Samsung ~31% on affordability, Apple owns the premium segment) reinforces *why* D3 pointed away from iPad in the first place — that's where GoodNotes and Notability already are.
+- Honest cost estimate if pursued: roughly doubles remaining engineering effort, not a fixed increment on top of it.
+
+No code changed as a result of this question — it was research and analysis only, delivered to the owner directly in conversation and recorded as D17.
+
+### State at end
+
+Build green, 51 tests passing, verified stable across repeated clean builds. 12 commits total across both Session 6 passes. The app now has its first real end-to-end persisted loop (create → survives restart → reopen → delete-with-undo) for notebooks; ink itself still does not persist, by design, pending the device-gated ink-engine decision.
+
+### Next action
+
+Unchanged: `VAHI-008` → `VAHI-101` (a real mid-range Android tablet, to measure ink latency and settle D6) is the binding blocker for further ink-engine work. Separately, and not blocking anything: **D17 needs the owner's answer** before any cross-platform restructuring should start — ideally before more Android-only ink-engine work is sunk, since that's the cheapest time to change course if the answer is "yes, cross-platform from the start."
+
+---
+
 ## 2026-09-08 — Session 6: First implementation pass (VAHI-001–003, 005, 110, 120, 201-partial)
 
 **Requested:** "start implementation, think logically and do everything properly." Explicit go-ahead to write code, following the plan and backlog from Session 5.

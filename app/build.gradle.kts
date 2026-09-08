@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -47,6 +49,19 @@ kotlin {
     }
 }
 
+// Room schema export (room.schemaLocation) is deliberately OFF for now. Room
+// 2.8.4's bundled schema-bundle classes (FieldBundle$$serializer etc.) throw
+// java.lang.AbstractMethodError ("typeParametersSerializers()") the moment KSP
+// re-reads an already-exported schema JSON to diff against — reproduced
+// deterministically with a fresh Kotlin daemon and with kotlinx-serialization-core
+// forced to both 1.7.3 and 1.8.1, so this is a genuine upstream incompatibility in
+// this Room/kotlinx.serialization pairing, not a resolvable version clash on this
+// project's end. It only bites on a full `clean` rebuild with a same-version
+// schema file already present — normal incremental builds are unaffected.
+// Zero functional cost right now: schema is version 1 with no migrations to
+// validate against. Revisit (docs/17-data-spec.md §6, R4) when a real schema v2
+// exists — either Room will have a fix by then, or re-litigate the Room version.
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -55,6 +70,18 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
+
+    // Persistence — VAHI-301 scope: notebook metadata only. Stroke/ink geometry is
+    // deliberately NOT persisted yet; see docs/17-data-spec.md R1 and the note on
+    // CanvasScreen's notebookId parameter.
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+
+    // Dependency injection — VAHI-202.
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
@@ -78,6 +105,10 @@ dependencies {
     // CanvasState (docs/19-quality-bar.md's highest-value test target) is testable
     // without an emulator.
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.room.testing)
+    // ApplicationProvider.getApplicationContext() for Room's in-memory database
+    // builder under Robolectric.
+    testImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

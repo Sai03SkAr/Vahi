@@ -35,6 +35,7 @@
 | [D14](#d14--single-gradle-module-until-a-named-trigger-fires) | Single Gradle module until a named trigger fires | ✅ Accepted |
 | [D15](#d15--offline-first-the-local-database-is-the-source-of-truth) | Offline-first: the local database is the source of truth | ✅ Accepted |
 | [D16](#d16--freemium-with-a-generous-free-tier-no-page-caps) | Freemium with a generous free tier, no page caps | 🔬 Provisional |
+| [D17](#d17--stay-android-only-for-now-cross-platform-is-technically-feasible-but-not-free) | Stay Android-only for now — cross-platform is feasible but not free | 🔲 **Open — needs the owner's call** |
 | [V1](#v1--app-theme-and-paper-theme-are-separate-settings) | App theme and Paper theme are separate settings | 🔬 Provisional |
 | [V2](#v2--font-family-noto-sans--noto-sans-devanagari) | Font family: Noto Sans + Noto Sans Devanagari | 🔬 Provisional |
 | [V3](#v3--lavender-stays-as-the-brand-accent) | Lavender stays as the brand accent | 🔬 Provisional |
@@ -371,6 +372,58 @@ download."
 - Full tier table: [`14-product-spec.md`](14-product-spec.md) §6.
 
 **What would overturn this:** the owner having a different monetisation model in mind (one-time purchase, ads, education licensing). Worth a deliberate answer before Track F.
+
+---
+
+## D17 — Stay Android-only for now — cross-platform is feasible, but not free
+
+**Status:** 🔲 **Open** (Session 6, 2026-09-08) — genuinely the owner's call, researched but not decided.
+
+**The question, as asked.** Should Vahi work on iOS as well as Android, and on phones and iPads as well as tablets?
+
+**The recommendation: not yet — revisit after v1 ships on Android, not before.** Stated plainly because the evidence points one way, but this is flagged **Open** rather than **Accepted** because it is fundamentally a product/business call, not a technical one, and it directly contradicts two decisions ([D2](#d2--tablet-only-for-v1), [D3](#d3--product-thesis-student-notebook-android-tablets-india)) that were made deliberately and confirmed with the owner. Overriding those requires the owner's explicit say, not an engineer's inference.
+
+### What's technically true, verified 2026-09-08
+
+**The right path, if this is pursued, is Kotlin Multiplatform + Compose Multiplatform — not Flutter, not React Native, not separate native codebases.** Vahi is already 100% Kotlin + Jetpack Compose, and Compose Multiplatform for iOS has been stable and production-ready since Compose Multiplatform 1.8.0 (May 2025) — companies including Netflix and Cash App run it in production. Rewriting in a different framework would throw away everything built so far for no benefit; KMP is a *restructuring* of the existing codebase, not a rewrite.
+
+**What ports cleanly, with real multiplatform support already confirmed:**
+
+| Piece | Multiplatform status |
+|---|---|
+| `core/model/` (coordinate types, `PaperStyle`) | Already pure Kotlin, zero Android dependency — verified this session (its 24 tests need no Robolectric). Ports as-is. |
+| `domain/` (`Notebook`, `NotebookRepository`) | Already pure Kotlin. Ports as-is. |
+| `kotlinx.serialization` (the typed nav routes) | Already multiplatform by design. |
+| **Room** | Has real KMP support since 2.7.0 via `androidx.sqlite` (a genuine cross-platform SQLite driver, not a shim) — confirmed working on iOS. Room 3.0 (alpha, 2026) extends this further. The `NotebookEntity`/`NotebookDao`/`VahiDatabase` built this session would very likely port with minimal change. |
+| `navigation-compose` | Has a multiplatform build, but under a **different Maven coordinate** (`org.jetbrains.androidx.navigation`, not `androidx.navigation`) — a real but mechanical migration. iOS swipe-back needs extra platform-specific glue. |
+
+**What needs real, separate work:**
+
+| Piece | The problem |
+|---|---|
+| **Hilt** | Confirmed Android-only — it is Dagger-based and has no KMP path. The multiplatform-standard replacement is **Koin**. This is a genuine migration of everything built in this session's DI work, not a recompile. |
+| **Media3/ExoPlayer** (splash video) | Android-only; iOS needs AVFoundation. Moot if [D11](#d11--drop-the-video-splash-and-the-media3-dependency) is accepted and the video splash is dropped anyway. |
+| **Phone/Compact layouts** | Supporting phones and iPads properly means building the responsive layouts [D2](#d2--tablet-only-for-v1) explicitly deferred as "weeks of speculative layout work" — for every screen, not just one. |
+
+**The one finding that actually matters most: the ink engine cannot be shared.**
+
+`androidx.ink` — the library [D6](#d6--ink-architecture-adopt-androidxink) recommends adopting, specifically *because* it solves low-latency authoring, real stroke geometry, and the serialisation format all at once — is **confirmed Android-only**, with no iOS or KMP support and nothing announced. On iOS, the equivalent is Apple's own **PencilKit**, a completely different API with no code-sharing path. This means:
+
+- The single most complex, highest-effort, most latency-critical part of the entire app — the part [D6](#d6--ink-architecture-adopt-androidxink) alone budgets at 1–2 weeks for Android *by itself* — would need a **second, fully separate implementation** for iOS, built on entirely different platform APIs.
+- The `InkEngine` interface abstraction already designed in [`18-architecture-target.md`](18-architecture-target.md) §3.1 turns out to be exactly the right shape to contain this (a `PencilKitInkEngine` behind the same interface) — good foresight, even though it wasn't originally designed with iOS in mind. That does not make building the second engine cheap; it only stops it from being architecturally messy.
+
+**Why this cuts against the product thesis, not just the engineering.** [D3](#d3--product-thesis-student-notebook-android-tablets-india) chose Android tablets specifically *because* "the best handwriting apps are iPad-first... being the app that feels best to write on, on Android, is a real, narrow, achievable claim" — i.e., iPad is already dominated by mature incumbents (GoodNotes, Notability), and that's precisely why the thesis pointed away from it. Two pieces of evidence found this session reinforce that this gap is real, not just competitive framing:
+
+- **Latency:** Apple's PencilKit achieves a remarkably *consistent* 22–28 ms system latency across iPad hardware generations (±0.9 ms over long sessions) — a product of Apple's tight hardware/software integration. Real-world Android stylus testing (Samsung S Pen Ultra, Logitech Crayon) measured 41–69 ms with much higher variance, despite `androidx.ink` being theoretically capable of ~4 ms on ideal hardware. Entering the iPad market means matching a bar Apple's own stack is unusually good at holding — with a brand-new, unproven second ink engine.
+- **Market shape:** in India specifically, Samsung leads Android tablets at ~31% share on affordability and variety (matching Vahi's price-sensitive target user), while Apple holds the premium segment where GoodNotes/Notability are already entrenched. Going to iPad means competing head-on in the segment the incumbents already own, not the one D3 identified as underserved.
+
+### The honest cost, if pursued anyway
+
+Not a fixed increment — closer to **roughly doubling** the remaining engineering effort, not a percentage on top of it: re-platforming the UI layer onto Compose Multiplatform, replacing Hilt with Koin, migrating the navigation dependency, building phone/iPad-responsive layouts for every screen (reversing D2), building and tuning a **second ink engine on PencilKit** from scratch, and maintaining double the QA surface (two platforms, two stylus ecosystems) for every feature from here on.
+
+**What would make this the right call anyway:** if the actual goal is a broader cross-device note-taking product rather than the specific Android-tablet-and-Indic-recognition wedge D3 describes — that is a legitimate different thesis, just a different one, and it's the owner's to choose. It would also be far cheaper to decide *now*, before more Android-only foundation work (the ink engine itself, `VAHI-101`/`VAHI-102`) gets built, than after.
+
+**What would settle this:** a direct answer from the owner to the tension above — is the goal still "best on Android tablets, with Indic recognition as the wedge no incumbent has bothered with" (D2/D3, stay Android-only, revisit iOS as a v2+ expansion once that's proven), or is it "a cross-device product from the start" (accept the roughly-doubled scope, start the KMP restructuring now, before sinking more effort into Android-only foundations)? Both are coherent; they are not the same product.
 
 ---
 

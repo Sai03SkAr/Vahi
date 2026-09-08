@@ -14,8 +14,8 @@ The app has a **complete UI shell** (splash → auth → home → canvas), **wor
 
 - **Repo:** `/Users/saisalelkar/Desktop/Vahi` · branch `main` · remote `origin/main`
 - **Package:** `com.vahi.app` · single Gradle module `:app`
-- **Stack:** Kotlin 2.1.20 · Compose BOM 2025.01.01 · AGP 8.13.2 · Material 3 · `navigation-compose` · minSdk 26 / target 36
-- **Size:** 26 Kotlin source files, ~3,750 lines (incl. 7 test files, 42 tests). Largest: `HomeScreen.kt` at 990 lines.
+- **Stack:** Kotlin 2.1.20 · Compose BOM 2025.01.01 · AGP 8.13.2 · Material 3 · `navigation-compose` · Room · Hilt · minSdk 26 / target 36
+- **Size:** 34 Kotlin source files, ~4,370 lines (incl. 8 test files, 51 tests). Largest: `HomeScreen.kt` at ~870 lines.
 - **Build:** `./gradlew :app:assembleDebug` and `:app:testDebugUnitTest` → **BUILD SUCCESSFUL** (verified Session 6)
 - **Design:** [`vahi-v1` on Figma](https://www.figma.com/design/JJAGOm1by1gHE6Nxe4yUhx/vahi-v1?node-id=0-1) — owner-authored, not yet reconciled with the docs ([V4](22-decisions.md#v4--figma-is-the-visual-source-of-truth-the-docs-describe-behaviour), `VAHI-004`)
 
@@ -25,15 +25,18 @@ The app has a **complete UI shell** (splash → auth → home → canvas), **wor
 
 > ### IMPLEMENTATION IN PROGRESS · FOUNDATION WORK STARTED
 >
-> **Session 6 (2026-09-08) did the first real implementation pass**, working the backlog's device-independent items in order: committed the working tree (`VAHI-001`), upgraded the dependency baseline (`VAHI-002`), configured backup rules (`VAHI-005`), fixed the tool rail's four shipped defects including the most severe bug in the project — an unrecoverable Clear button (`VAHI-003`) — replaced hand-rolled navigation with `navigation-compose` (`VAHI-201`, partial), added the coordinate-model types (`VAHI-110`, types only, not yet wired in), and fixed the undo/erase stack conflation (`VAHI-007`/`VAHI-120`). **7 of the 20 catalogued bugs are now fixed** (#5, #8, #13, #15, #16, #18, #19); bug #1 is half-fixed. Full detail: `PROJECT-LOG.md`'s newest entry.
+> **Session 6 (2026-09-08) did the first real implementation pass, in two parts.** Part 1 worked the backlog's device-independent items in order: committed the working tree (`VAHI-001`), upgraded the dependency baseline (`VAHI-002`), configured backup rules (`VAHI-005`), fixed the tool rail's four shipped defects including the most severe bug in the project — an unrecoverable Clear button (`VAHI-003`) — replaced hand-rolled navigation with `navigation-compose` (`VAHI-201`, partial), added the coordinate-model types (`VAHI-110`, types only, not yet wired in), and fixed the undo/erase stack conflation (`VAHI-007`/`VAHI-120`). Part 2 (same day, extended pass) added a real persistence foundation: Room + Hilt + `LibraryViewModel` (`VAHI-202`, `VAHI-301`/`VAHI-303`/`VAHI-304` scoped to notebook metadata) — **notebooks are now genuinely created, listed, opened, pinned and deleted-with-undo**, not hardcoded. **7 of the 20 catalogued bugs are now fixed** (#5, #8, #13, #15, #16, #18, #19); bug #1 is half-fixed. Full detail: `PROJECT-LOG.md`'s two newest entries.
 >
-> **The next action is `VAHI-008` → `VAHI-101`: get a real mid-range Android tablet and measure ink latency**, which settles decision D6. This is now the binding constraint — every device-independent item that could reasonably precede it is done. In parallel, on-device verification of everything Session 6 shipped (the Undo snackbar, TalkBack on the tool rail, whether navigation position genuinely survives rotation now) would be high-value and needs no further planning, just a device.
+> **The next action is `VAHI-008` → `VAHI-101`: get a real mid-range Android tablet and measure ink latency**, which settles decision D6. This is now the binding constraint — every device-independent item that could reasonably precede it is done. In parallel, on-device verification of everything Session 6 shipped would be high-value and needs no further planning, just a device.
+>
+> **A cross-platform (iOS) question was raised and researched this session — see [D17 below](#4-settled-decisions) and `22-decisions.md` D17.** Short version: technically feasible via Kotlin Multiplatform, but the ink engine (the product's core differentiator) cannot be shared with iOS — `androidx.ink` is Android-only — and the decision cuts against the confirmed D2/D3 thesis. **Not started; needs the owner's call.**
 
-### What Session 6 changed, in three bullets
+### What Session 6 changed
 
-1. **The most severe bug in the project is fixed.** The tool rail's Clear button destroyed a page with no way back, one tap below Undo/Redo. It now snapshots the page and offers an "Undo" snackbar. Three more shipped tool-rail defects fixed alongside it (40dp touch targets, missing content descriptions, hardcoded colours, a px/dp unit mixup in the width preview).
-2. **Two of the five foundations have real down-payments, not just specs.** Navigation is genuinely `navigation-compose` now (bug #8 fixed by construction). The coordinate-model *types* from `16-canvas-spec.md` §2 exist and are tested (24 tests, no Robolectric needed — confirms they're genuinely Android-free) — but nothing in the app uses them yet; wiring them into the canvas is separate, later work.
-3. **Nothing was verified on a device**, same as every prior session — this environment still has no GUI. Every fix above is verified by compilation, 42 passing unit tests, and reading the code, not by touching a screen.
+1. **The most severe bug in the project is fixed.** The tool rail's Clear button destroyed a page with no way back, one tap below Undo/Redo. It now snapshots the page and offers an "Undo" snackbar. Three more shipped tool-rail defects fixed alongside it.
+2. **All three of the app-foundation/persistence/ink foundations now have real down-payments, not just specs.** Navigation is genuinely `navigation-compose` (bug #8 fixed by construction). The coordinate-model *types* exist and are tested (24 tests, no Robolectric needed — confirms they're genuinely Android-free) but aren't wired into the canvas yet. Room + Hilt are real, with a working `NotebookRepository` and `LibraryViewModel` — `BaseViewModel`'s first subclass.
+3. **The library is no longer a demo.** Create → persists → appears in the library → survives an app restart → can be reopened, pinned, deleted-with-undo. That loop did not exist before this session.
+4. **Nothing was verified on a device**, same as every prior session — this environment still has no GUI. Every fix above is verified by compilation, 51 passing unit tests, and reading the code, not by touching a screen.
 
 ### Still true, and still the thing that most needs doing
 

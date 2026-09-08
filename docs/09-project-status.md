@@ -16,14 +16,14 @@ Vahi is a **UI prototype with a working ink engine and no data layer**. You can 
 | Navigation | **Works.** Rewritten onto `navigation-compose` with a real back stack and type-safe routes (Session 6) |
 | Splash | **Works**, now with error + timeout handling (Session 4) |
 | Authentication | **Cosmetic only** — no validation, no backend |
-| Notebook library | **Cosmetic only** — two hardcoded notebooks |
+| Notebook library | **Real, persisted (Session 6)** — create/list/open/pin/delete-with-undo all work against Room |
 | Canvas + paper styles | **Works** |
 | Freehand drawing (pen) | **Works** |
 | Eraser / undo / redo / colour / width | **Works — toolbar added (Session 4).** Session 5 found four defects (#13, #15, #16, #18); all four fixed in Session 6. Still not on-device verified. |
 | Palm rejection / multi-touch | **Actively wrong** — see bug #14. The palm draws instead of the stylus |
-| Persistence | **Does not exist** |
+| Persistence | **Notebook metadata only** (Session 6). Ink/strokes still don't persist. |
 | Networking / backend | **Does not exist** |
-| ViewModels / domain / data layers | **Scaffolded, empty** |
+| ViewModels / domain / data layers | **`LibraryViewModel` is real** (Session 6) — `BaseViewModel`'s first subclass. Editor/ink side still has none. |
 | Phone support | **Does not exist by design (D2)** — Auth shows an honest message now instead of a debug string (Session 4) |
 | Tests | **None** beyond templates |
 
@@ -63,11 +63,14 @@ Vahi is a **UI prototype with a working ink engine and no data layer**. You can 
 
 ## 🔴 Not implemented
 
-### Data and persistence — the biggest gap
-- No database, no file storage, no preferences, no serialisation.
-- **Strokes vanish** the moment you leave the canvas or rotate the device (`remember`, not `rememberSaveable`, not ViewModel-scoped).
-- **Notebooks are a hardcoded two-element list** inside `NotebookGrid`. Creating a notebook does not create anything — it navigates straight to a blank canvas. The new notebook never appears in the library.
-- No `Notebook` ↔ canvas association at all: the canvas doesn't know which notebook it belongs to, only which paper style to draw.
+### Data and persistence — the biggest gap, now half-closed (Session 6)
+
+**✅ Notebook metadata is real, as of Session 6.** Room + Hilt + a `NotebookRepository` landed (`VAHI-202`, `VAHI-301`-scoped-to-metadata, `VAHI-206`'s ViewModel half). Creating a notebook persists it; the library shows real data; tapping an existing card opens it — none of which was possible before. Delete is soft (tombstoned) with an "Undo" snackbar; pin/unpin works; "Pinned notes" actually filters. Deleting the app's data or reinstalling still loses everything (no export, no backup — that's unchanged and is Track F / v2.0 territory).
+
+**🔴 Still true — the actually-hard half:**
+- **Ink itself is still not persisted.** Strokes still vanish the moment you leave the canvas or rotate the device (`remember`, not `rememberSaveable`, not ViewModel-scoped). This is deliberate, not an oversight: persisting stroke geometry before the coordinate model is *wired into the canvas* (not just built as types — see `VAHI-110`) would violate docs/17-data-spec.md's R1 hard rule. It also waits on the `androidx.ink` decision (D6), which needs a physical device to settle (`VAHI-101`).
+- No file storage, no preferences (DataStore), no export/backup.
+- `CanvasScreen` now receives a real `notebookId`, but nothing inside it uses that ID yet — see the KDoc on `CanvasScaffold.kt`'s `notebookId` parameter.
 
 ### Authentication
 - `onClick = onLoginSuccess` — the button ignores the four fields entirely.

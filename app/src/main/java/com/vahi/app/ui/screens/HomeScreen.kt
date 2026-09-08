@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -30,53 +29,74 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.vahi.app.R
+import com.vahi.app.core.model.PaperStyle
+import com.vahi.app.domain.model.Notebook
+import com.vahi.app.ui.feature.library.LibraryViewModel
 import com.vahi.app.ui.theme.*
-import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 /* ---------- DATA ---------- */
-
-data class Notebook(
-    val id: String,
-    val title: String,
-    val created: String,
-    val color: Color
-)
+// `Notebook` used to be a display-only data class declared right here, with two
+// hardcoded sample instances. It's now the real, persisted domain model —
+// see domain/model/Notebook.kt.
 
 data class CardMenuAnchor(
     val notebookId: String,
     val offset: Offset
 )
 
+/** New notebooks rotate through this palette rather than all sharing one colour —
+ *  there's no colour-picker UI yet (doc 15 §4.5's fuller create-modal design), so
+ *  this is the cheapest way new cards don't look identical. */
+private val notebookColorPalette = listOf(
+    Color(0xFFBABEFF), Color(0xFFD3C3C3), Color(0xFFC4E8D1), Color(0xFFFFE0B2), Color(0xFFB2D8FF)
+)
+
 /* ---------- SCREEN ---------- */
 
 @Composable
 fun HomeScreen(
-    onNavigateToCanvas: (CanvasType) -> Unit = {}
+    onNavigateToCanvas: (notebookId: String, paperStyle: PaperStyle) -> Unit = { _, _ -> }
 ) {
+    // hiltViewModel() here is the hilt-navigation-compose:1.3.0 API, deprecated in
+    // favour of a new androidx.hilt.lifecycle.viewmodel.compose package — that
+    // package ships in the SAME artifact whose 1.4.0 release requires compileSdk 37
+    // / AGP 9.1+ (see gradle/libs.versions.toml's hiltNavigationCompose comment).
+    // Chasing the deprecation would reintroduce the exact conflict staying on 1.3.0
+    // avoids, for a warning with no functional cost. Left as-is deliberately.
+    val viewModel: LibraryViewModel = hiltViewModel()
+    val uiState by viewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     // Density for converting captured pointer/layout offsets (px) to dp for overlay positioning —
     // see docs/09, bug #3: these offsets come from positionInRoot() and are in pixels, not dp.
     val density = LocalDensity.current
 
     // State for full-screen modal
     var isCreateNotebookOpen by remember { mutableStateOf(false) }
-    
+
     // State for dropdown overlays
     var cardMenuAnchor by remember { mutableStateOf<CardMenuAnchor?>(null) }
     var isSettingsOpen by remember { mutableStateOf(false) }
     var isProfileOpen by remember { mutableStateOf(false) }
-    
+
+    // "All" vs "Pinned notes" — filtered client-side from the already-loaded list.
+    // NotebookRepository.observePinned() exists for a future dedicated surface but
+    // isn't used here; see docs/21-backlog.md VAHI-207.
+    var showPinnedOnly by remember { mutableStateOf(false) }
+
     // Button positions for anchoring overlays
     var settingsButtonPosition by remember { mutableStateOf(Offset.Zero) }
     var profileButtonPosition by remember { mutableStateOf(Offset.Zero) }
@@ -111,6 +131,21 @@ fun HomeScreen(
         isCreateNotebookOpen = true
     }
 
+    fun deleteNotebook(notebook: Notebook) {
+        viewModel.deleteNotebook(notebook.id)
+        coroutineScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = "\"${notebook.title}\" deleted",
+                actionLabel = "Undo",
+                withDismissAction = false,
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.restoreNotebook(notebook.id)
+            }
+        }
+    }
+
     // Determine if any dropdown is open
     val isAnyDropdownOpen = cardMenuAnchor != null || isSettingsOpen || isProfileOpen
 
@@ -122,6 +157,8 @@ fun HomeScreen(
             closeDropdowns()
         }
     }
+
+    val visibleNotebooks = if (showPinnedOnly) uiState.notebooks.filter { it.isPinned } else uiState.notebooks
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -135,7 +172,11 @@ fun HomeScreen(
                 )
         ) {
             HomeContent(
+                notebooks = visibleNotebooks,
+                showPinnedOnly = showPinnedOnly,
+                onFilterChanged = { showPinnedOnly = it },
                 onCreateNotebook = { openCreateNotebook() },
+                onOpenNotebook = { notebook -> onNavigateToCanvas(notebook.id, notebook.paperStyle) },
                 onSettings = { openSettings() },
                 onProfile = { openProfile() },
                 onCardMenuOpen = { anchor -> openCardMenu(anchor) },
@@ -157,13 +198,21 @@ fun HomeScreen(
             ) {
                 // Card Context Menu - anchored to the three-dot button, positioned within screen
                 cardMenuAnchor?.let { anchor ->
+                    val menuNotebook = uiState.notebooks.find { it.id == anchor.notebookId }
                     val topPadding = with(density) { anchor.offset.y.toDp() } + 40.dp
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(top = topPadding, end = 24.dp)
                     ) {
-                        CardContextMenu(onDismiss = { closeDropdowns() })
+                        if (menuNotebook != null) {
+                            CardContextMenu(
+                                isPinned = menuNotebook.isPinned,
+                                onDismiss = { closeDropdowns() },
+                                onDelete = { deleteNotebook(menuNotebook) },
+                                onTogglePin = { viewModel.togglePin(menuNotebook.id, !menuNotebook.isPinned) }
+                            )
+                        }
                     }
                 }
 
@@ -200,16 +249,37 @@ fun HomeScreen(
                     onDismiss = { isCreateNotebookOpen = false },
                     onOptionSelected = { option ->
                         isCreateNotebookOpen = false
-                        when (option) {
-                            "Blank" -> onNavigateToCanvas(CanvasType.BLANK)
-                            "Ruled" -> onNavigateToCanvas(CanvasType.RULED)
-                            "Grid" -> onNavigateToCanvas(CanvasType.GRID)
-                            "Import PDF" -> { /* Import handled separately */ }
+                        val paperStyle = when (option) {
+                            "Blank" -> PaperStyle.BLANK
+                            "Ruled" -> PaperStyle.RULED
+                            "Grid" -> PaperStyle.GRID
+                            else -> null // "Import PDF" — no-op, needs androidx.pdf (v1.1, D8/D12)
+                        }
+                        if (paperStyle != null) {
+                            coroutineScope.launch {
+                                viewModel.createNotebook(
+                                    title = "Untitled notebook",
+                                    color = notebookColorPalette[uiState.notebooks.size % notebookColorPalette.size],
+                                    paperStyle = paperStyle
+                                ).onSuccess { notebook ->
+                                    onNavigateToCanvas(notebook.id, notebook.paperStyle)
+                                }
+                            }
                         }
                     }
                 )
             }
         }
+
+        // Layer 4: Snackbar host — surfaces "Undo" after a notebook is deleted.
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(bottom = 16.dp)
+                .zIndex(30f)
+        )
     }
 }
 
@@ -367,9 +437,22 @@ fun CreateNotebookOption(
 
 @Composable
 fun CardContextMenu(
-    onDismiss: () -> Unit
+    isPinned: Boolean = false,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit = {},
+    onTogglePin: () -> Unit = {}
 ) {
-    val menuItems = listOf("delete", "edit", "share", "pin", "lock")
+    // "delete" and "pin"/"unpin" are real actions (VAHI-207). "edit"/"share"/"lock"
+    // stay no-ops — rename needs a text-input dialog, share and lock need a backend
+    // and a real credential story respectively. Neither is built yet; see
+    // docs/09-project-status.md "Home screen features".
+    val menuItems: List<Pair<String, () -> Unit>> = listOf(
+        "delete" to onDelete,
+        "edit" to {},
+        "share" to {},
+        (if (isPinned) "unpin" else "pin") to onTogglePin,
+        "lock" to {}
+    )
 
     Box(
         modifier = Modifier
@@ -384,13 +467,16 @@ fun CardContextMenu(
             .padding(12.dp)
     ) {
         Column {
-            menuItems.forEach { item ->
+            menuItems.forEach { (item, action) ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable { onDismiss() }
+                        .clickable {
+                            action()
+                            onDismiss()
+                        }
                         .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -520,7 +606,11 @@ fun ProfileOverlay(
 
 @Composable
 private fun HomeContent(
+    notebooks: List<Notebook>,
+    showPinnedOnly: Boolean,
+    onFilterChanged: (Boolean) -> Unit,
     onCreateNotebook: () -> Unit,
+    onOpenNotebook: (Notebook) -> Unit,
     onSettings: () -> Unit,
     onProfile: () -> Unit,
     onCardMenuOpen: (CardMenuAnchor) -> Unit,
@@ -543,7 +633,7 @@ private fun HomeContent(
 
         Spacer(Modifier.height(24.dp))
 
-        FiltersRow()
+        FiltersRow(showPinnedOnly = showPinnedOnly, onFilterChanged = onFilterChanged)
 
         Spacer(Modifier.height(16.dp))
 
@@ -552,7 +642,9 @@ private fun HomeContent(
         Spacer(Modifier.height(24.dp))
 
         NotebookGrid(
+            notebooks = notebooks,
             onCreateNotebook = onCreateNotebook,
+            onOpenNotebook = onOpenNotebook,
             onCardMenuOpen = onCardMenuOpen
         )
     }
@@ -654,16 +746,19 @@ private fun TopBar(
 /* ---------- FILTERS ---------- */
 
 @Composable
-private fun FiltersRow() {
+private fun FiltersRow(
+    showPinnedOnly: Boolean,
+    onFilterChanged: (Boolean) -> Unit
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // "All" tab - selected state with pill background
+        // "All" tab
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = VahiFilterSelected,
-            modifier = Modifier.clickable { }
+            color = if (!showPinnedOnly) VahiFilterSelected else Color.Transparent,
+            modifier = Modifier.clickable { onFilterChanged(false) }
         ) {
             Text(
                 text = "All",
@@ -674,17 +769,21 @@ private fun FiltersRow() {
             )
         }
 
-        // "Pinned notes" - plain text
-        Text(
-            text = "Pinned notes",
-            modifier = Modifier
-                .clickable { }
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            fontSize = 14.sp,
-            color = Color(0xFF666666)
-        )
+        // "Pinned notes"
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = if (showPinnedOnly) VahiFilterSelected else Color.Transparent,
+            modifier = Modifier.clickable { onFilterChanged(true) }
+        ) {
+            Text(
+                text = "Pinned notes",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                fontSize = 14.sp,
+                color = if (showPinnedOnly) Color(0xFF333333) else Color(0xFF666666)
+            )
+        }
 
-        // "Imported Books" - plain text
+        // "Imported Books" — no-op; PDF import is v1.1 (D8/D12), no data to filter yet
         Text(
             text = "Imported Books",
             modifier = Modifier
@@ -738,22 +837,6 @@ private fun ToolbarRow(onCreateNotebook: () -> Unit) {
                 .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp)),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Checkmark - selected view indicator
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(Color.White)
-                    .clickable { },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = "Selected",
-                    modifier = Modifier.size(18.dp),
-                    tint = Color(0xFF333333)
-                )
-            }
-
             // Grid view icon
             Box(
                 modifier = Modifier
@@ -762,7 +845,6 @@ private fun ToolbarRow(onCreateNotebook: () -> Unit) {
                     .clickable { },
                 contentAlignment = Alignment.Center
             ) {
-                // 4-square grid icon using text
                 Text(
                     text = "⊞",
                     fontSize = 16.sp,
@@ -778,7 +860,6 @@ private fun ToolbarRow(onCreateNotebook: () -> Unit) {
                     .clickable { },
                 contentAlignment = Alignment.Center
             ) {
-                // List lines icon using text
                 Text(
                     text = "≡",
                     fontSize = 18.sp,
@@ -789,7 +870,9 @@ private fun ToolbarRow(onCreateNotebook: () -> Unit) {
 
         Spacer(Modifier.width(16.dp))
 
-        // "Most recent" dropdown
+        // "Most recent" — the repository already orders by updatedAt DESC, so this
+        // label is honest even though the dropdown itself is still a no-op; a real
+        // sort selector is future work (docs/12-ux-plan.md §4.3).
         Surface(
             onClick = {},
             shape = RoundedCornerShape(20.dp),
@@ -838,14 +921,11 @@ private fun ToolbarRow(onCreateNotebook: () -> Unit) {
 
 @Composable
 private fun NotebookGrid(
+    notebooks: List<Notebook>,
     onCreateNotebook: () -> Unit,
+    onOpenNotebook: (Notebook) -> Unit,
     onCardMenuOpen: (CardMenuAnchor) -> Unit
 ) {
-    val notebooks = listOf(
-        Notebook("1", "Maths notes", "Created 4 jan 2025", Color(0xFFBABEFF)),
-        Notebook("2", "Python Problems", "Created 23 dec 2025", Color(0xFFD3C3C3))
-    )
-
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         horizontalArrangement = Arrangement.spacedBy(24.dp),
@@ -856,9 +936,10 @@ private fun NotebookGrid(
             CreateNotebookCard(onCreateNotebook)
         }
 
-        items(notebooks) { notebook ->
+        items(notebooks, key = { it.id }) { notebook ->
             NotebookCard(
                 notebook = notebook,
+                onOpen = { onOpenNotebook(notebook) },
                 onMenuClick = { offset ->
                     onCardMenuOpen(CardMenuAnchor(notebook.id, offset))
                 }
@@ -915,6 +996,7 @@ private fun CreateNotebookCard(onClick: () -> Unit) {
 @Composable
 private fun NotebookCard(
     notebook: Notebook,
+    onOpen: () -> Unit,
     onMenuClick: (Offset) -> Unit
 ) {
     var menuButtonPosition by remember { mutableStateOf(Offset.Zero) }
@@ -924,8 +1006,10 @@ private fun NotebookCard(
             .size(260.dp, 200.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(notebook.color)
+            .clickable { onOpen() }
     ) {
-        // Notebook icon in top-left
+        // Notebook icon in top-left — keyed off paper style, not a title-string
+        // heuristic tied to sample data that no longer exists.
         Box(
             modifier = Modifier
                 .padding(16.dp)
@@ -934,12 +1018,13 @@ private fun NotebookCard(
                 .background(Color.White.copy(alpha = 0.3f)),
             contentAlignment = Alignment.Center
         ) {
-            // Icon placeholder - abacus for Maths, laptop for Python, etc.
             Text(
-                text = if (notebook.title.contains("Maths", ignoreCase = true)) "🧮" 
-                       else if (notebook.title.contains("Python", ignoreCase = true)) "💻"
-                       else "📓",
-                fontSize = 20.sp
+                text = when (notebook.paperStyle) {
+                    PaperStyle.BLANK -> "□"
+                    PaperStyle.RULED -> "≡"
+                    PaperStyle.GRID -> "⊞"
+                },
+                fontSize = 18.sp
             )
         }
 
@@ -967,7 +1052,8 @@ private fun NotebookCard(
             )
         }
 
-        // Title and date at the bottom
+        // Title and last-edited time at the bottom. "Edited 2 hours ago" is more
+        // useful than a creation date for navigating by (doc 15 §4.2 / doc 12 §4.1).
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -981,10 +1067,30 @@ private fun NotebookCard(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = notebook.created,
+                text = "Edited ${formatRelativeTime(notebook.updatedAt)}",
                 fontSize = 12.sp,
                 color = Color(0xFF666666)
             )
+        }
+    }
+}
+
+/** A small, dependency-free relative-time formatter — "Edited 2 hours ago" rather
+ *  than a raw timestamp. Not a general-purpose util yet; move it if a second
+ *  caller shows up. */
+private fun formatRelativeTime(epochMillis: Long): String {
+    val diffMs = (System.currentTimeMillis() - epochMillis).coerceAtLeast(0)
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(diffMs)
+    val hours = TimeUnit.MILLISECONDS.toHours(diffMs)
+    val days = TimeUnit.MILLISECONDS.toDays(diffMs)
+    return when {
+        minutes < 1 -> "just now"
+        minutes < 60 -> "$minutes min ago"
+        hours < 24 -> "$hours hr ago"
+        days < 7 -> "$days day${if (days == 1L) "" else "s"} ago"
+        else -> {
+            val weeks = days / 7
+            "$weeks week${if (weeks == 1L) "" else "s"} ago"
         }
     }
 }

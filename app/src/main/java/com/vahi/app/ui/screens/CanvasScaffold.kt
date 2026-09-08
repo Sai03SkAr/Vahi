@@ -19,33 +19,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.vahi.app.core.model.PaperStyle
 import com.vahi.app.ui.components.drawing.CanvasState
 import com.vahi.app.ui.components.drawing.DrawingCanvas
 import com.vahi.app.ui.components.drawing.DrawingToolbar
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
-
-/**
- * Canvas type enum. The former NotebookType enum in NotebookCanvasScreen.kt was an
- * identical 1:1 duplicate of this one, purely to feed a now-removed adapter — see
- * docs/09-project-status.md "Code quality observations". @Serializable so it can be
- * carried directly as a navigation-compose type-safe route argument (AppRoot.kt).
- */
-@Serializable
-enum class CanvasType {
-    BLANK,
-    RULED,
-    GRID
-}
 
 /**
  * Unified fullscreen canvas screen.
- * Supports Blank, Ruled, and Grid canvas types.
+ * Supports Blank, Ruled, and Grid paper styles.
  * Includes drawing layer with PEN and ERASER tools.
+ *
+ * @param notebookId the notebook this canvas belongs to. Not yet used by anything
+ *   inside this composable — ink itself still isn't persisted, and CanvasState is
+ *   still `remember`-scoped (docs/09-project-status.md bug #1, half-fixed). Threaded
+ *   through now, while the navigation route is already being touched for the
+ *   Session 6 persistence work, so a later session doesn't have to modify this
+ *   route a second time purely to add an ID that was always going to be needed.
  */
 @Composable
 fun CanvasScreen(
-    canvasType: CanvasType,
+    notebookId: String,
+    canvasType: PaperStyle,
     onBack: () -> Unit
 ) {
     // Canvas state for drawing (strokes, undo/redo, tool selection)
@@ -81,9 +76,9 @@ fun CanvasScreen(
     ) {
         // Layer 1: Background canvas (fullscreen)
         when (canvasType) {
-            CanvasType.BLANK -> BlankCanvasContent()
-            CanvasType.RULED -> RuledCanvasContent()
-            CanvasType.GRID -> GridCanvasContent()
+            PaperStyle.BLANK -> BlankCanvasContent()
+            PaperStyle.RULED -> RuledCanvasContent()
+            PaperStyle.GRID -> GridCanvasContent()
         }
 
         // Layer 2: Drawing layer (transparent, handles drawing/erasing)
@@ -108,7 +103,7 @@ fun CanvasScreen(
 
         // Layer 4: Back arrow overlay
         // Position: Bottom-left for Blank and Ruled, Top-left for Grid
-        val arrowAlignment = if (canvasType == CanvasType.GRID) {
+        val arrowAlignment = if (canvasType == PaperStyle.GRID) {
             Alignment.TopStart
         } else {
             Alignment.BottomStart
@@ -116,11 +111,11 @@ fun CanvasScreen(
 
         BackArrowButton(
             onClick = onBack,
-            isGrid = canvasType == CanvasType.GRID,
+            isGrid = canvasType == PaperStyle.GRID,
             modifier = Modifier
                 .align(arrowAlignment)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(if (canvasType == CanvasType.GRID) 16.dp else 24.dp)
+                .padding(if (canvasType == PaperStyle.GRID) 16.dp else 24.dp)
                 .zIndex(100f)
         )
 

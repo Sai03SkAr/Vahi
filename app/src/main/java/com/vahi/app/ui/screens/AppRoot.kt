@@ -5,6 +5,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.vahi.app.core.model.PaperStyle
 import kotlinx.serialization.Serializable
 
 /**
@@ -16,7 +17,7 @@ import kotlinx.serialization.Serializable
  * ever null while `destination == NOTEBOOK_CANVAS`, the screen silently rendered
  * nothing (docs/09-project-status.md bug #8). A typed route argument makes that
  * class of bug impossible: [Editor] cannot exist on the back stack without its
- * [CanvasType].
+ * [PaperStyle] and notebook ID.
  *
  * This also gives the app a real back stack and, via `rememberNavController`'s
  * built-in `SavedStateHandle` integration, restores the current destination and its
@@ -31,7 +32,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable private data object Library
 
-@Serializable private data class Editor(val canvasType: CanvasType)
+/** `notebookId` added in Session 6 alongside the persistence layer — see the KDoc
+ *  on `CanvasScreen`'s `notebookId` parameter for why it's threaded through even
+ *  though nothing inside the editor uses it yet. */
+@Serializable private data class Editor(val notebookId: String, val canvasType: PaperStyle)
 
 @Composable
 fun AppRoot() {
@@ -60,8 +64,8 @@ fun AppRoot() {
 
         composable<Library> {
             HomeScreen(
-                onNavigateToCanvas = { canvasType ->
-                    navController.navigate(Editor(canvasType))
+                onNavigateToCanvas = { notebookId, paperStyle ->
+                    navController.navigate(Editor(notebookId, paperStyle))
                 }
             )
         }
@@ -69,6 +73,7 @@ fun AppRoot() {
         composable<Editor> { backStackEntry ->
             val editor: Editor = backStackEntry.toRoute()
             CanvasScreen(
+                notebookId = editor.notebookId,
                 canvasType = editor.canvasType,
                 onBack = { navController.popBackStack() }
             )
