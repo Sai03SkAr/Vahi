@@ -80,7 +80,7 @@ Vahi is a **UI prototype with a working ink engine and no data layer**. You can 
 - No sign-in vs. sign-up mode distinction.
 
 ### Home screen features
-**Real (Session 6/7):** create, list, open, the "All"/"Pinned notes" filter tabs, pin/unpin (both the filter and the card menu's toggle), delete-with-undo, title search (`VAHI-408`). **Still no-ops:** both grid/list view-mode toggles, the sort dropdown, the Import button, Upgrade, and the remaining dropdown-menu rows (edit, share, lock, Profile, Preferences, Help, Logout, Account, Notifications, Upgrade to Plus).
+**Real (Session 6/7):** create, list, open, the "All"/"Pinned notes" filter tabs, pin/unpin (both the filter and the card menu's toggle), delete-with-undo, title search (`VAHI-408`), and Settings (`VAHI-406`) — a real two-pane screen reached by real navigation, replacing the four-grey-row `SettingsOverlay` dropdown, which is deleted. **Still no-ops:** both grid/list view-mode toggles, the sort dropdown, the Import button, Upgrade, and the Profile dropdown's rows (edit/share/lock on the card menu; Account, Notifications, Upgrade to Plus, Logout on the profile menu — none of these have a backing repository or auth yet).
 
 ### Import PDF
 Selected in the modal, dispatched to `{ /* Import handled separately */ }`. No PDF rendering dependency, no file picker, no storage permission.

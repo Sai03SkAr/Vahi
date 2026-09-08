@@ -2,4 +2,34 @@
     <string name="app_name">Vahi</string>
     <string name="tablet_only_title">Vahi works best on a tablet</string>
     <string name="tablet_only_message">Please open Vahi on a tablet-sized screen to continue.</string>
+
+    <!-- Settings (VAHI-406) -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_writing">Writing</string>
+    <string name="settings_section_storage">Storage</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_app_theme">App theme</string>
+    <string name="settings_paper_theme">Paper theme</string>
+    <string name="settings_default_paper_style">Default paper style</string>
+    <string name="settings_handedness">Handedness</string>
+    <string name="settings_finger_draw">Draw with finger</string>
+    <string name="settings_finger_draw_description">Off means only a stylus draws ink — useful if you rest your palm on the screen while writing.</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_paper_white">White</string>
+    <string name="settings_paper_cream">Cream</string>
+    <string name="settings_paper_dark">Dark</string>
+    <string name="settings_paper_style_blank">Blank</string>
+    <string name="settings_paper_style_ruled">Ruled</string>
+    <string name="settings_paper_style_grid">Grid</string>
+    <string name="settings_handedness_left">Left</string>
+    <string name="settings_handedness_right">Right</string>
+    <string name="settings_storage_used">Space used</string>
+    <string name="settings_storage_size_mb">%1$.2f MB</string>
+    <string name="settings_storage_notebook_count">Notebooks</string>
+    <string name="settings_storage_note">This is total on-disk size, not a per-notebook breakdown — Vahi doesn\'t yet save your handwriting itself (only notebook titles and colours), so there isn\'t a meaningful per-notebook figure yet.</string>
+    <string name="settings_about_version">Version</string>
 </resources>

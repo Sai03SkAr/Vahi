@@ -8,6 +8,32 @@ Purpose: if a session ends abruptly or a usage limit is hit, the next session re
 
 ---
 
+## 2026-09-08 — Session 7, third pass: VAHI-406, a real Settings screen
+
+**Requested:** direct continuation of the same session — `VAHI-406` was the natural next item once its one dependency (`VAHI-307`) landed in the pass immediately below.
+
+**Done:** `Settings` added as a real `navigation-compose` destination in `AppRoot.kt`, reached from `HomeScreen`'s existing Settings button. This replaces `SettingsOverlay` — a dropdown of four grey placeholder rows ("Profile", "Preferences", "Help", "Logout", all no-ops) — which is deleted, along with the anchoring plumbing it needed (`isSettingsOpen`, `settingsButtonPosition`, `onSettingsButtonPositioned` threaded through `HomeContent`/`TopBar`).
+
+`SettingsScreen.kt`: two-pane per docs/15-ux-blueprint.md §6 — a section list (Appearance/Writing/Storage/About) on the left, detail on the right. `SettingsViewModel` combines `PreferencesRepository.observe()` with `NotebookRepository.observeAll()` for a live notebook count, plus a one-time on-disk database-file-size read. Caught one bug before it shipped: that file-size read is blocking I/O, and a ViewModel's `init` block runs on whichever thread first calls `hiltViewModel()` — Compose's main thread — so it's explicitly dispatched onto `Dispatchers.IO` rather than left inline.
+
+**Scoped down from the full blueprint table on purpose:** no Account or Vahi Plus sections — building either now would be a no-op placeholder, since neither auth nor billing exists (both v2.0), and CLAUDE.md's own failure-mode table calls this out by name as work that gets thrown away twice. "Storage" shows a real total (actual bytes on disk, actual notebook count) rather than a fabricated per-notebook breakdown — with ink not yet persisted, every notebook is just a metadata row, so a per-notebook split wouldn't mean anything yet; the screen says so rather than implying false precision.
+
+**Self-review before commit caught three issues, fixed before shipping:** an unused import; two touch targets at 40dp instead of the project's 48dp minimum (the choice-chip options and the section-list rows — both fixed); and one hardcoded string literal ("MB" concatenated via `String.format` instead of a string resource) — all new code, so all fixed rather than left as debt matching the rest of the app.
+
+Also enabled `buildFeatures.buildConfig = true` (was off) so `BuildConfig.VERSION_NAME`/`VERSION_CODE` are available for the About section — a small, standard, low-risk build-config change.
+
+**Docs:** `21-backlog.md` (`VAHI-406` done, epic summary corrected), `00-START-HERE.md`, `09-project-status.md` (home-screen feature list corrected again — Settings is real now, and the "still no-op" dropdown-row list was stale since `SettingsOverlay`'s specific rows no longer exist).
+
+### State at end
+
+Build green, still 62 tests (no new ViewModel-layer tests — matches this codebase's existing convention of testing at the repository layer, same as `LibraryViewModel` has no direct test either). Three Session 7 passes now committed; pushing this one next.
+
+### Next action
+
+Unchanged: `VAHI-008` → `VAHI-101`, a real Android tablet, for the ink-latency benchmark. Everything sized and unblocked that could reasonably be picked up without one has now been picked up across this session's three passes.
+
+---
+
 ## 2026-09-08 — Session 7, extended pass: D11 (drop the video splash), DataStore preferences, local profile identity, title search
 
 **Requested:** after the first Session 7 pass reported two remaining items ("everything is blocked on hardware, except a brand decision (D11) and the size of the remaining backlog"), the owner said to explain both plainly and then just proceed — "get it done then start with it." D11 was explained (what the video splash costs, why the docs proposed dropping it); the owner's reply was to go ahead. The "size of the backlog" point was corrected: E4–E7 aren't blocked, they're just large and hadn't been started.

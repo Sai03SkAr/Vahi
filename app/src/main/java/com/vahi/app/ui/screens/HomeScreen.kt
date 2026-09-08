@@ -76,7 +76,8 @@ private val notebookColorPalette = listOf(
 
 @Composable
 fun HomeScreen(
-    onNavigateToCanvas: (notebookId: String, paperStyle: PaperStyle) -> Unit = { _, _ -> }
+    onNavigateToCanvas: (notebookId: String, paperStyle: PaperStyle) -> Unit = { _, _ -> },
+    onNavigateToSettings: () -> Unit = {}
 ) {
     // hiltViewModel() here is the hilt-navigation-compose:1.3.0 API, deprecated in
     // favour of a new androidx.hilt.lifecycle.viewmodel.compose package — that
@@ -98,7 +99,6 @@ fun HomeScreen(
 
     // State for dropdown overlays
     var cardMenuAnchor by remember { mutableStateOf<CardMenuAnchor?>(null) }
-    var isSettingsOpen by remember { mutableStateOf(false) }
     var isProfileOpen by remember { mutableStateOf(false) }
 
     // "All" vs "Pinned notes" — filtered client-side from the already-loaded list.
@@ -112,31 +112,21 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
 
     // Button positions for anchoring overlays
-    var settingsButtonPosition by remember { mutableStateOf(Offset.Zero) }
     var profileButtonPosition by remember { mutableStateOf(Offset.Zero) }
 
     // Helper functions for overlay management
     fun openCardMenu(anchor: CardMenuAnchor) {
-        isSettingsOpen = false
         isProfileOpen = false
         cardMenuAnchor = anchor
     }
 
-    fun openSettings() {
-        cardMenuAnchor = null
-        isProfileOpen = false
-        isSettingsOpen = true
-    }
-
     fun openProfile() {
         cardMenuAnchor = null
-        isSettingsOpen = false
         isProfileOpen = true
     }
 
     fun closeDropdowns() {
         cardMenuAnchor = null
-        isSettingsOpen = false
         isProfileOpen = false
     }
 
@@ -161,7 +151,7 @@ fun HomeScreen(
     }
 
     // Determine if any dropdown is open
-    val isAnyDropdownOpen = cardMenuAnchor != null || isSettingsOpen || isProfileOpen
+    val isAnyDropdownOpen = cardMenuAnchor != null || isProfileOpen
 
     // Handle back button for all overlays
     BackHandler(enabled = isCreateNotebookOpen || isAnyDropdownOpen) {
@@ -198,10 +188,9 @@ fun HomeScreen(
                 onSearchQueryChanged = { searchQuery = it },
                 onCreateNotebook = { openCreateNotebook() },
                 onOpenNotebook = { notebook -> onNavigateToCanvas(notebook.id, notebook.paperStyle) },
-                onSettings = { openSettings() },
+                onSettings = onNavigateToSettings,
                 onProfile = { openProfile() },
                 onCardMenuOpen = { anchor -> openCardMenu(anchor) },
-                onSettingsButtonPositioned = { position -> settingsButtonPosition = position },
                 onProfileButtonPositioned = { position -> profileButtonPosition = position }
             )
         }
@@ -234,18 +223,6 @@ fun HomeScreen(
                                 onTogglePin = { viewModel.togglePin(menuNotebook.id, !menuNotebook.isPinned) }
                             )
                         }
-                    }
-                }
-
-                // Settings Overlay - anchored below Settings button, positioned within screen
-                if (isSettingsOpen) {
-                    val topPadding = with(density) { settingsButtonPosition.y.toDp() } + 48.dp
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = topPadding, end = 60.dp)
-                    ) {
-                        SettingsOverlay(onDismiss = { closeDropdowns() })
                     }
                 }
 
@@ -521,57 +498,6 @@ fun CardContextMenu(
     }
 }
 
-/* ---------- SETTINGS OVERLAY ---------- */
-
-@Composable
-fun SettingsOverlay(
-    onDismiss: () -> Unit
-) {
-    val menuItems = listOf("Profile", "Preferences", "Help", "Logout")
-
-    Box(
-        modifier = Modifier
-            .width(260.dp)
-            .shadow(4.dp, RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { }
-            .padding(12.dp)
-    ) {
-        Column {
-            menuItems.forEach { item ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onDismiss() }
-                        .padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFFE8E8E8))
-                    )
-
-                    Spacer(Modifier.width(12.dp))
-
-                    Text(
-                        text = item,
-                        fontSize = 16.sp,
-                        color = Color(0xFF333333)
-                    )
-                }
-            }
-        }
-    }
-}
-
 /* ---------- PROFILE OVERLAY (STEP 7) ---------- */
 
 @Composable
@@ -637,7 +563,6 @@ private fun HomeContent(
     onSettings: () -> Unit,
     onProfile: () -> Unit,
     onCardMenuOpen: (CardMenuAnchor) -> Unit,
-    onSettingsButtonPositioned: (Offset) -> Unit,
     onProfileButtonPositioned: (Offset) -> Unit
 ) {
     Column(
@@ -650,7 +575,6 @@ private fun HomeContent(
         TopBar(
             onSettings = onSettings,
             onProfile = onProfile,
-            onSettingsButtonPositioned = onSettingsButtonPositioned,
             onProfileButtonPositioned = onProfileButtonPositioned
         )
 
@@ -683,7 +607,6 @@ private fun HomeContent(
 private fun TopBar(
     onSettings: () -> Unit,
     onProfile: () -> Unit,
-    onSettingsButtonPositioned: (Offset) -> Unit,
     onProfileButtonPositioned: (Offset) -> Unit
 ) {
     Row(
@@ -716,15 +639,11 @@ private fun TopBar(
 
         Spacer(Modifier.width(12.dp))
 
-        // Settings Button - Light pill with gear icon
+        // Settings Button - Light pill with gear icon - navigates to SettingsScreen (VAHI-406)
         Surface(
             onClick = onSettings,
             shape = RoundedCornerShape(24.dp),
-            color = VahiSettingsButtonBg,
-            modifier = Modifier.onGloballyPositioned { coordinates ->
-                val position = coordinates.positionInRoot()
-                onSettingsButtonPositioned(position)
-            }
+            color = VahiSettingsButtonBg
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),

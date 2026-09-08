@@ -40,6 +40,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true // exposes versionName/versionCode to code — Settings "About" (VAHI-406)
     }
 }
 

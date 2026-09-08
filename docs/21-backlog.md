@@ -11,7 +11,7 @@
 
 ## Summary
 
-> **Updated Session 7, extended pass (2026-09-08).** `VAHI-006`, `VAHI-205` (both halves — the owner confirmed dropping the video splash), `VAHI-307`, `VAHI-309` and `VAHI-408` all done. `VAHI-204` partial (the two glyphs that were genuine accessibility violations — no `contentDescription` at all — fixed; the rest are visual-only and already screen-reader-safe via `semantics`, deferred to avoid redoing icon work once Figma iconography (`VAHI-004`) is read). E1/E2/E3 all now have real, working down-payments (navigation, coordinate types, command history, Room+Hilt+a real ViewModel) — sized at "items done" not "epic done," since every remaining item in those epics is still real, substantial work. Persistence's *metadata* half is closed — notebooks, preferences, and profile identity are all real; ink is not, and cannot be until `VAHI-101`/`VAHI-110` (wired) land.
+> **Updated Session 7, extended pass (2026-09-08).** `VAHI-006`, `VAHI-205` (both halves — the owner confirmed dropping the video splash), `VAHI-307`, `VAHI-309`, `VAHI-408`, and `VAHI-406` (Settings screen, once its `VAHI-307` dependency landed) all done. `VAHI-204` partial (the two glyphs that were genuine accessibility violations — no `contentDescription` at all — fixed; the rest are visual-only and already screen-reader-safe via `semantics`, deferred to avoid redoing icon work once Figma iconography (`VAHI-004`) is read). E1/E2/E3 all now have real, working down-payments (navigation, coordinate types, command history, Room+Hilt+a real ViewModel) — sized at "items done" not "epic done," since every remaining item in those epics is still real, substantial work. Persistence's *metadata* half is closed — notebooks, preferences, and profile identity are all real; ink is not, and cannot be until `VAHI-101`/`VAHI-110` (wired) land.
 
 | Epic | Theme | Items | Size | Status |
 |---|---|---|---|---|
@@ -19,7 +19,7 @@
 | **E1** | Ink foundation (F1, F2, F5) | 10 | ~17 ed | 🟨 2/10 started — `VAHI-110` (types only, not wired), `VAHI-120` (scoped fix) |
 | **E2** | App foundation + UI rebuild (F3) | 13 | ~24 ed | 🟨 6/13 started — `VAHI-201` (partial), `VAHI-202`/`VAHI-205` (done), `VAHI-204` (partial), `VAHI-206`/`VAHI-207` (partial) |
 | **E3** | Persistence (F4) | 9 | ~16 ed | 🟨 5/9 started — `VAHI-307`/`VAHI-309` (done), `VAHI-301`/`VAHI-303`/`VAHI-304` (notebook scope done, page/ink scope untouched, correctly blocked on `VAHI-110` wired + `VAHI-102`) |
-| **E4** | v1.0 completion & release | 14 | ~24 ed | 🟨 1/14 done — `VAHI-408` |
+| **E4** | v1.0 completion & release | 14 | ~24 ed | 🟨 2/14 done — `VAHI-406`, `VAHI-408` |
 | **E5** | v1.1 — PDF & organisation | 7 | ~19 ed | ⬜ |
 | **E6** | v1.2 — Recognition & search | 6 | ~14 ed | ⬜ |
 | **E7** | v2.0 — Accounts & sync | 7 | ~33 ed | ⬜ |
@@ -339,9 +339,11 @@ VAHI-001 ✅ commit tree
 **Accept:** `.vahi` round-trips losslessly, including through a version bump.
 **Deps:** VAHI-404.
 
-### VAHI-406 · Settings screen ⬜ L
+### VAHI-406 · Settings screen ✅ Done (Session 7) · L
 **Do:** [`15-ux-blueprint.md`](15-ux-blueprint.md) §6, two-pane. Handedness, paper theme, finger-draw, storage-by-notebook, about.
-**Deps:** VAHI-307, VAHI-201.
+**Done:** real navigation destination (`Settings` route in `AppRoot.kt`), replacing `SettingsOverlay`'s four grey placeholder rows and its dropdown-anchoring logic entirely (`isSettingsOpen`/`settingsButtonPosition` deleted from `HomeScreen.kt`). Two-pane: `SettingsSectionList` (left) + detail pane (right) — Appearance (app theme, paper theme, default paper style), Writing (handedness, finger-draw with a live description), Storage (real on-disk DB size + notebook count — see the note below), About (version from `BuildConfig`, newly enabled via `buildFeatures.buildConfig = true`). `SettingsViewModel` combines `PreferencesRepository.observe()` with `NotebookRepository.observeAll()`; the one-time DB-file-size read is dispatched onto `Dispatchers.IO` explicitly — `File.length()` is blocking I/O and a ViewModel's `init` block runs on whichever thread first calls `hiltViewModel()` (Compose's main thread).
+**Scoped down from the full docs/15-ux-blueprint.md §6 table, deliberately:** Account and Vahi Plus sections are **not built** — neither auth nor billing exists (both v2.0), and building either as a no-op placeholder is exactly the trap CLAUDE.md's failure-mode table warns about ("wiring up the ~20 no-op buttons... work you throw away twice"). "Storage by notebook" is a **total** figure, not a per-notebook breakdown — with ink not yet persisted, every notebook is just a metadata row, so a per-notebook split would be close to meaningless; the screen says so explicitly rather than implying a precision it doesn't have.
+**Deps:** VAHI-307, VAHI-201. **Verified:** `:app:assembleDebug`, `:app:testDebugUnitTest` both `BUILD SUCCESSFUL`.
 
 ### VAHI-407 · Notebook properties + export sheet ⬜ M
 **Deps:** VAHI-404, VAHI-207.

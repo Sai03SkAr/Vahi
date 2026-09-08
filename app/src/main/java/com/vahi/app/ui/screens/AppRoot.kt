@@ -60,6 +60,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable private data object Library
 
+/** `VAHI-406` — real navigation destination, replacing `SettingsOverlay`'s dropdown. */
+@Serializable private data object Settings
+
 /** `notebookId` added in Session 6 alongside the persistence layer — see the KDoc
  *  on `CanvasScreen`'s `notebookId` parameter for why it's threaded through even
  *  though nothing inside the editor uses it yet. */
@@ -92,8 +95,13 @@ fun AppRoot() {
             HomeScreen(
                 onNavigateToCanvas = { notebookId, paperStyle ->
                     navController.navigate(Editor(notebookId, paperStyle))
-                }
+                },
+                onNavigateToSettings = { navController.navigate(Settings) }
             )
+        }
+
+        composable<Settings> {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
 
         composable<Editor> { backStackEntry ->
