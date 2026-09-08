@@ -1,19 +1,23 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Applies to Cloud Backup and Device-to-Device Transfer on API 31+.
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+
+   Notebook data is explicitly excluded from both paths — see
+   docs/22-decisions.md D13. Auto Backup has a silent 25 MB quota and a
+   restore path that can overwrite newer notes with older ones with no
+   conflict UI; neither is acceptable for a notes app. The user-controlled
+   backup path is manual export (docs/17-data-spec.md §8), not this.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <include domain="sharedpref" path="." />
+        <exclude domain="database" path="vahi.db" />
+        <exclude domain="file" path="notebooks/" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <include domain="sharedpref" path="." />
+        <exclude domain="database" path="vahi.db" />
+        <exclude domain="file" path="notebooks/" />
     </device-transfer>
-    -->
 </data-extraction-rules>
