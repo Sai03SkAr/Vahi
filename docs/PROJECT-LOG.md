@@ -8,6 +8,41 @@ Purpose: if a session ends abruptly or a usage limit is hit, the next session re
 
 ---
 
+## 2026-09-08 — Session 6, planning pass: All-device expansion plan (D17 resolved)
+
+**Requested:** plan how Vahi becomes available on all devices — phones, tablets, Android and iOS — as a phase *after* the current v1 work, explicitly **without implementing any of it now**. Also asked why the Hilt work hadn't been done.
+
+**On the Hilt question:** it had been — committed in `78fb7cf` in the previous pass, as a complete injection graph (`@HiltAndroidApp` → `@AndroidEntryPoint` → `DatabaseModule`/`RepositoryModule` → `@HiltViewModel` → `hiltViewModel()` in `HomeScreen`). It was bundled with Room deliberately rather than done separately, since DI with nothing to inject is empty scaffolding. Nothing was needed from the owner. A stale entry in the working task list said otherwise and was corrected — worth noting as a process failure, not just a mix-up: the task list disagreed with the committed code and the code was right.
+
+### Done — planning only, zero code changed
+
+**New: [`23-cross-platform-plan.md`](23-cross-platform-plan.md)** — the full all-device plan. Its most useful contribution is a reframe: **"works everywhere" is two independent problems, not one.**
+
+- **Axis A — form factor** (phone ⇄ tablet ⇄ foldable): pure responsive-layout work, entirely inside the current Android codebase, no KMP. **~14 ed.**
+- **Axis B — platform** (Android ⇄ iOS): KMP restructuring, a second ink engine, DI migration, second store pipeline. **~45 ed**, plus a standing **+30–40% on all later feature work.**
+
+They're independent, and **A must come first** — otherwise iPhone layouts get built twice. Axis A alone is a complete, defensible "works on all Android devices" outcome at ~25% of the cost, and likely reaches more of the target student (most tablet owners also own a phone).
+
+**A correction to my own earlier analysis, recorded prominently.** The first draft of D17 (written earlier the same day) claimed iOS would *lose the product's differentiator*, on the assumption that ML Kit Digital Ink Recognition was Android-only. **That was wrong.** ML Kit Digital Ink runs on iOS too — fully offline, same 300+ languages and 25+ writing systems, every Indic script from D9, with an official Google iOS quickstart. Porting it is a cinterop binding (~3 ed), not a reinvention. The corrected picture: **the differentiator ports; the ink *engine* does not.** This made iOS look materially worse than it is, and the error is called out explicitly in D17 rather than quietly amended.
+
+**Other findings verified this pass:** Compose Multiplatform is at **1.12.0** (Sept 2026), iOS stable since 1.8.0 with Netflix/Cash App in production · Room has genuine KMP support via `androidx.sqlite` · `navigation-compose` ports under a different Maven coordinate · **Hilt has no KMP path — Koin is the replacement** · `androidx.ink` remains Android-only, so iOS needs a second engine on PencilKit via CMP's first-class `UIKitView` interop.
+
+**One finding that changes work happening now — the only one.** `VAHI-102` (the Android ink engine, not yet started) gained a hard acceptance criterion: **the `.ink` payload must be engine-neutral geometry, not `androidx.ink`'s native `ink-storage` blob.** If Android writes notes in an Android-only format, a future iOS engine cannot read them and there is **no migration path** — the geometry is locked in. Same class of irreversible, cheap-to-prevent mistake as the R1 screen-pixel-coordinates rule. Costs ~1 ed at `VAHI-102`; unfixable afterwards. The `.ink` header already carries an `engineId` field anticipating multiple engines — that foresight only pays off if the payload is portable too.
+
+**Also decided:** do **not** use a single shared Compose `Canvas` ink engine across both platforms. CMP renders via Skia→Metal on iOS with measurable added latency, and a plain Compose `Canvas` already can't hit the latency bar on Android. Sharing there would sacrifice the core quality claim on both platforms to save integration work on one. Best native engine per platform, behind the existing `InkEngine` interface.
+
+**Docs updated:** `22-decisions.md` (D17 rewritten and **Accepted**; D2 re-scoped as v1-only rather than permanent), `21-backlog.md` (new epics **E8** ~14 ed and **E9** ~45 ed, 19 new items; `VAHI-102` acceptance criterion), `14-product-spec.md` (roadmap gains v1.5 and v2.x), `19-quality-bar.md` (device matrix), `00-START-HERE.md`, `README.md`.
+
+### State at end
+
+**No code changed. Build untouched and still green** (51 tests). v1 scope is unchanged and remains the active work — this pass only ensured the expansion is planned rather than improvised, and that one decision inside v1's own scope (`VAHI-102`'s payload format) doesn't quietly foreclose it.
+
+### Next action
+
+Unchanged: `VAHI-008` → `VAHI-101` — a real mid-range Android tablet, to measure ink latency and settle D6. Everything in E8/E9 is gated on v1 shipping first and should not start earlier.
+
+---
+
 ## 2026-09-08 — Session 6, extended pass: Persistence foundation (Room + Hilt) and the iOS/cross-platform question
 
 **Requested:** "do whatever is left to complete the project, then do the Hilt part, tell me if I need to do anything, then tell me when done" — followed, mid-work, by a request to research and report on iOS and cross-device (phone/iPad/tablet) support.

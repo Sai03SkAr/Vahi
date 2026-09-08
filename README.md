@@ -90,7 +90,8 @@ Or open the project in Android Studio and hit Run.
 | Doc | What's in it |
 |---|---|
 | [`docs/21-backlog.md`](docs/21-backlog.md) | **The execution spine** — 75 numbered work items, sized, dependency-ordered |
-| [`docs/22-decisions.md`](docs/22-decisions.md) | **Authoritative decision log** — 22 ADRs with reasoning and rejected alternatives |
+| [`docs/22-decisions.md`](docs/22-decisions.md) | **Authoritative decision log** — 23 ADRs with reasoning and rejected alternatives |
+| [`docs/23-cross-platform-plan.md`](docs/23-cross-platform-plan.md) | **All-device expansion plan** — phones, foldables, iPad, iPhone. Post-v1; nothing started |
 | [`docs/PROJECT-LOG.md`](docs/PROJECT-LOG.md) | Append-only session-by-session record of what happened and why |
 
 **Reading paths**

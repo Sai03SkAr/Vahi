@@ -134,7 +134,11 @@ Sizes are **engineering-days** ([D7](22-decisions.md#d7--schedule-expressed-in-e
 | **v1.1 — Study Material** | "Bring your textbooks in" | PDF import & annotation · folders · multi-select | ~20 ed |
 | **v1.2 — The Differentiator** | "Search your handwriting" | ML Kit Indic recognition · content search · language packs | ~15 ed |
 | **v1.3 — Study Tools** | "Revise from your own notes" | Flashcards · practice questions · explain-this-passage | ~15 ed |
+| **v1.5 — All Android devices** | "On the tablet *and* the phone" | Responsive layouts for phone/foldable · bottom-bar editor on Compact · sheets instead of popovers | ~14 ed |
 | **v2.0 — Multi-device** | "Everywhere" | Accounts · Google Sign-In · sync with conflict resolution · Plus tier | ~35 ed |
+| **v2.x — iOS** | "iPad and iPhone too" | KMP restructuring · Koin · **a second ink engine on PencilKit** · ML Kit iOS binding · App Store pipeline | ~45 ed |
+
+> **v1.5 and v2.x are the cross-platform expansion, planned in full in [`23-cross-platform-plan.md`](23-cross-platform-plan.md) and gated on v1 shipping ([D17](22-decisions.md#d17--android-tablets-for-v1-all-devices-as-a-planned-post-v1-phase)).** Note the ordering: **all-Android-devices comes before iOS**, because it's ~25% of the cost, likely reaches more of the target student (most tablet owners also own a phone), and produces the responsive layouts iPhone would otherwise need built twice. iOS is placed after sync deliberately — "works on my iPad" that shows an empty, unrelated library isn't what a user means by multi-device.
 
 **Note the shape.** The differentiator does not ship until v1.2. That is deliberate: a differentiator built on a shaky notebook is a demo. But it is only ~4 releases out, and everything before it is load-bearing for it.
 

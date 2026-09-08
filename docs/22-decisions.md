@@ -35,7 +35,7 @@
 | [D14](#d14--single-gradle-module-until-a-named-trigger-fires) | Single Gradle module until a named trigger fires | ✅ Accepted |
 | [D15](#d15--offline-first-the-local-database-is-the-source-of-truth) | Offline-first: the local database is the source of truth | ✅ Accepted |
 | [D16](#d16--freemium-with-a-generous-free-tier-no-page-caps) | Freemium with a generous free tier, no page caps | 🔬 Provisional |
-| [D17](#d17--stay-android-only-for-now-cross-platform-is-technically-feasible-but-not-free) | Stay Android-only for now — cross-platform is feasible but not free | 🔲 **Open — needs the owner's call** |
+| [D17](#d17--android-tablets-for-v1-all-devices-as-a-planned-post-v1-phase) | Android tablets for v1; all devices as a planned post-v1 phase | ✅ **Accepted** |
 | [V1](#v1--app-theme-and-paper-theme-are-separate-settings) | App theme and Paper theme are separate settings | 🔬 Provisional |
 | [V2](#v2--font-family-noto-sans--noto-sans-devanagari) | Font family: Noto Sans + Noto Sans Devanagari | 🔬 Provisional |
 | [V3](#v3--lavender-stays-as-the-brand-accent) | Lavender stays as the brand accent | 🔬 Provisional |
@@ -79,6 +79,8 @@
 - Revisit after v1 ships, driven by install data — not before.
 
 **What would overturn this:** evidence that a meaningful share of the target audience only owns a phone. That is a market question, not an engineering one.
+
+> **Re-scoped, not overturned (Session 6, [D17](#d17--android-tablets-for-v1-all-devices-as-a-planned-post-v1-phase)):** "tablet-only" is a **v1** constraint. Phone, foldable, iPad and iPhone support is now a planned post-v1 phase, specified in [`23-cross-platform-plan.md`](23-cross-platform-plan.md). Nothing changes for v1 — do **not** build phone layouts speculatively (that plan's X7) — but keep using window size classes rather than hardcoded dp (X6), which costs nothing now and keeps the door open.
 
 ---
 
@@ -375,55 +377,49 @@ download."
 
 ---
 
-## D17 — Stay Android-only for now — cross-platform is feasible, but not free
+## D17 — Android tablets for v1; all devices as a planned post-v1 phase
 
-**Status:** 🔲 **Open** (Session 6, 2026-09-08) — genuinely the owner's call, researched but not decided.
+**Status:** ✅ **Accepted** (Session 6, 2026-09-08) — confirmed with the project owner.
 
 **The question, as asked.** Should Vahi work on iOS as well as Android, and on phones and iPads as well as tablets?
 
-**The recommendation: not yet — revisit after v1 ships on Android, not before.** Stated plainly because the evidence points one way, but this is flagged **Open** rather than **Accepted** because it is fundamentally a product/business call, not a technical one, and it directly contradicts two decisions ([D2](#d2--tablet-only-for-v1), [D3](#d3--product-thesis-student-notebook-android-tablets-india)) that were made deliberately and confirmed with the owner. Overriding those requires the owner's explicit say, not an engineer's inference.
+**Decision.** **Yes — eventually, and deliberately, as a planned phase after v1 ships.** v1 remains Android-tablet-only ([D2](#d2--tablet-only-for-v1) stands, as a v1 scoping decision rather than a permanent one). The expansion is planned in full in [`23-cross-platform-plan.md`](23-cross-platform-plan.md) and **is not started** — but current work is shaped so that it stays cheap (that doc's Part 8).
+
+### ⚠️ Correction to this ADR's first draft
+
+The first version of D17, written earlier the same session, concluded that iOS would **lose the product's differentiator** because it assumed ML Kit Digital Ink Recognition was Android-only. **That was wrong, and the error mattered** — it made iOS look considerably worse than it is.
+
+**ML Kit Digital Ink Recognition runs on iOS as well as Android** — fully offline, the same 300+ languages and 25+ writing systems, covering every Indic script named in [D9](#d9--handwriting-recognition-uses-ml-kit-digital-ink-on-device). Google ships an official iOS quickstart. Porting it is a cinterop binding (~3 ed), not a reinvention.
+
+The corrected picture: **the differentiator ports; the ink *engine* does not.**
 
 ### What's technically true, verified 2026-09-08
 
-**The right path, if this is pursued, is Kotlin Multiplatform + Compose Multiplatform — not Flutter, not React Native, not separate native codebases.** Vahi is already 100% Kotlin + Jetpack Compose, and Compose Multiplatform for iOS has been stable and production-ready since Compose Multiplatform 1.8.0 (May 2025) — companies including Netflix and Cash App run it in production. Rewriting in a different framework would throw away everything built so far for no benefit; KMP is a *restructuring* of the existing codebase, not a rewrite.
+**The right path is Kotlin Multiplatform + Compose Multiplatform** — not Flutter, not React Native, not separate native codebases. Vahi is already 100% Kotlin + Compose. CMP is at **1.12.0** (Sept 2026), iOS stable since 1.8.0 (May 2025), with Netflix and Cash App in production on it. This is a *restructuring* of the existing codebase, not a rewrite.
 
-**What ports cleanly, with real multiplatform support already confirmed:**
+| Ports as-is | Mechanical migration | Needs a second implementation |
+|---|---|---|
+| `core/model/`, `domain/` (both already Android-free — proven by their tests needing no Robolectric), `kotlinx.serialization`, Compose UI | Room (real KMP support via `androidx.sqlite`), `navigation-compose` (different coordinate), DataStore | **Hilt → Koin**, **`androidx.ink` → PencilKit**, `androidx.pdf` → PDFKit, Media3 → AVFoundation (moot under [D11](#d11--drop-the-video-splash-and-the-media3-dependency)) |
 
-| Piece | Multiplatform status |
-|---|---|
-| `core/model/` (coordinate types, `PaperStyle`) | Already pure Kotlin, zero Android dependency — verified this session (its 24 tests need no Robolectric). Ports as-is. |
-| `domain/` (`Notebook`, `NotebookRepository`) | Already pure Kotlin. Ports as-is. |
-| `kotlinx.serialization` (the typed nav routes) | Already multiplatform by design. |
-| **Room** | Has real KMP support since 2.7.0 via `androidx.sqlite` (a genuine cross-platform SQLite driver, not a shim) — confirmed working on iOS. Room 3.0 (alpha, 2026) extends this further. The `NotebookEntity`/`NotebookDao`/`VahiDatabase` built this session would very likely port with minimal change. |
-| `navigation-compose` | Has a multiplatform build, but under a **different Maven coordinate** (`org.jetbrains.androidx.navigation`, not `androidx.navigation`) — a real but mechanical migration. iOS swipe-back needs extra platform-specific glue. |
+**The genuinely hard part: `androidx.ink` is Android-only, with no iOS build announced.** iOS needs a second ink engine on Apple's **PencilKit** — the most latency-critical, most complex component in the product, built twice on entirely different APIs. The `InkEngine` interface in [`18-architecture-target.md`](18-architecture-target.md) §3.1 is the right shape to contain this (it was designed for a different swap and happens to fit), which keeps it architecturally clean without making it cheap. Notably, PencilKit gives iOS palm rejection, pressure and low latency *for free* — bug #14, currently the worst open defect on Android, largely doesn't exist there.
 
-**What needs real, separate work:**
+**Do not "solve" this by sharing one Compose `Canvas` engine across both platforms.** CMP renders via Skia→Metal on iOS with measurable added latency, and a plain Compose `Canvas` already can't hit the latency bar on Android ([`16-canvas-spec.md`](16-canvas-spec.md) §1). That trade sacrifices the core quality claim on both platforms to save integration work on one.
 
-| Piece | The problem |
-|---|---|
-| **Hilt** | Confirmed Android-only — it is Dagger-based and has no KMP path. The multiplatform-standard replacement is **Koin**. This is a genuine migration of everything built in this session's DI work, not a recompile. |
-| **Media3/ExoPlayer** (splash video) | Android-only; iOS needs AVFoundation. Moot if [D11](#d11--drop-the-video-splash-and-the-media3-dependency) is accepted and the video splash is dropped anyway. |
-| **Phone/Compact layouts** | Supporting phones and iPads properly means building the responsive layouts [D2](#d2--tablet-only-for-v1) explicitly deferred as "weeks of speculative layout work" — for every screen, not just one. |
+### Why this ordering, rather than starting now
 
-**The one finding that actually matters most: the ink engine cannot be shared.**
+[D3](#d3--product-thesis-student-notebook-android-tablets-india) chose Android tablets *because* iPad is where GoodNotes and Notability are already entrenched, and Android tablets were the underserved wedge. Two verified data points support that this gap is real rather than rhetorical:
 
-`androidx.ink` — the library [D6](#d6--ink-architecture-adopt-androidxink) recommends adopting, specifically *because* it solves low-latency authoring, real stroke geometry, and the serialisation format all at once — is **confirmed Android-only**, with no iOS or KMP support and nothing announced. On iOS, the equivalent is Apple's own **PencilKit**, a completely different API with no code-sharing path. This means:
+- **Latency:** Apple's PencilKit holds a consistent 22–28 ms across iPad generations (±0.9 ms). Real-world Android stylus testing (S Pen Ultra, Logitech Crayon) measured 41–69 ms with far higher variance. Entering iPad means matching a bar Apple's integrated stack is unusually good at — with a brand-new engine.
+- **Market:** in India, Samsung leads Android tablets at ~31% share on affordability (matching the price-sensitive target user), while Apple owns the premium segment the incumbents already hold.
 
-- The single most complex, highest-effort, most latency-critical part of the entire app — the part [D6](#d6--ink-architecture-adopt-androidxink) alone budgets at 1–2 weeks for Android *by itself* — would need a **second, fully separate implementation** for iOS, built on entirely different platform APIs.
-- The `InkEngine` interface abstraction already designed in [`18-architecture-target.md`](18-architecture-target.md) §3.1 turns out to be exactly the right shape to contain this (a `PencilKitInkEngine` behind the same interface) — good foresight, even though it wasn't originally designed with iOS in mind. That does not make building the second engine cheap; it only stops it from being architecturally messy.
+### Consequences
 
-**Why this cuts against the product thesis, not just the engineering.** [D3](#d3--product-thesis-student-notebook-android-tablets-india) chose Android tablets specifically *because* "the best handwriting apps are iPad-first... being the app that feels best to write on, on Android, is a real, narrow, achievable claim" — i.e., iPad is already dominated by mature incumbents (GoodNotes, Notability), and that's precisely why the thesis pointed away from it. Two pieces of evidence found this session reinforce that this gap is real, not just competitive framing:
+- **[D2](#d2--tablet-only-for-v1) is explicitly re-scoped**, not overturned: tablet-only is a *v1* constraint. Phone support is planned as v1.5 (["Axis A"](23-cross-platform-plan.md), ~14 ed) and is both cheaper and higher-reach than iOS.
+- **The two axes are independent and must be sequenced A-then-B.** Form factor (phone ⇄ tablet, ~14 ed, no KMP) is a separate problem from platform (Android ⇄ iOS, ~45 ed). Doing B first means building iPhone layouts twice.
+- **One rule lands in current work immediately:** the `.ink` payload must be **engine-neutral geometry**, not `androidx.ink`'s native blob — otherwise Android-written notes are permanently unreadable on iOS with no migration path. Added as an acceptance criterion on `VAHI-102` ([`23-cross-platform-plan.md`](23-cross-platform-plan.md) Part 4, X3). This is the same class of one-way door as the R1 coordinate rule in [`17-data-spec.md`](17-data-spec.md).
+- Total expansion cost ≈ **60 ed** across both axes, plus a standing **+30–40%** on all subsequent feature work (two engines, two stores, two QA surfaces).
 
-- **Latency:** Apple's PencilKit achieves a remarkably *consistent* 22–28 ms system latency across iPad hardware generations (±0.9 ms over long sessions) — a product of Apple's tight hardware/software integration. Real-world Android stylus testing (Samsung S Pen Ultra, Logitech Crayon) measured 41–69 ms with much higher variance, despite `androidx.ink` being theoretically capable of ~4 ms on ideal hardware. Entering the iPad market means matching a bar Apple's own stack is unusually good at holding — with a brand-new, unproven second ink engine.
-- **Market shape:** in India specifically, Samsung leads Android tablets at ~31% share on affordability and variety (matching Vahi's price-sensitive target user), while Apple holds the premium segment where GoodNotes/Notability are already entrenched. Going to iPad means competing head-on in the segment the incumbents already own, not the one D3 identified as underserved.
-
-### The honest cost, if pursued anyway
-
-Not a fixed increment — closer to **roughly doubling** the remaining engineering effort, not a percentage on top of it: re-platforming the UI layer onto Compose Multiplatform, replacing Hilt with Koin, migrating the navigation dependency, building phone/iPad-responsive layouts for every screen (reversing D2), building and tuning a **second ink engine on PencilKit** from scratch, and maintaining double the QA surface (two platforms, two stylus ecosystems) for every feature from here on.
-
-**What would make this the right call anyway:** if the actual goal is a broader cross-device note-taking product rather than the specific Android-tablet-and-Indic-recognition wedge D3 describes — that is a legitimate different thesis, just a different one, and it's the owner's to choose. It would also be far cheaper to decide *now*, before more Android-only foundation work (the ink engine itself, `VAHI-101`/`VAHI-102`) gets built, than after.
-
-**What would settle this:** a direct answer from the owner to the tension above — is the goal still "best on Android tablets, with Indic recognition as the wedge no incumbent has bothered with" (D2/D3, stay Android-only, revisit iOS as a v2+ expansion once that's proven), or is it "a cross-device product from the start" (accept the roughly-doubled scope, start the KMP restructuring now, before sinking more effort into Android-only foundations)? Both are coherent; they are not the same product.
+**What would overturn this:** a decision that cross-device is the *primary* product thesis rather than an expansion of it — in which case the KMP restructuring should start before more Android-only ink work is sunk, since that is the cheapest moment to change course.
 
 ---
 

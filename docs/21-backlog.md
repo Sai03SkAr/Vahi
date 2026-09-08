@@ -127,6 +127,8 @@ VAHI-001 ✅ commit tree
 ### VAHI-102 · `InkEngine` interface + implementation ⬜ L
 **Why:** the abstraction that makes the D6 fallback a swap rather than a rewrite. One file imports `androidx.ink`; nothing else in the codebase knows it exists.
 **Accept:** [`16-canvas-spec.md`](16-canvas-spec.md) §3.1 interface implemented; `grep -rl "androidx.ink" app/src/main` returns exactly one file; unit tests cover serialise/deserialise round-trip.
+**⚠️ Added acceptance criterion (Session 6, [D17](22-decisions.md#d17--android-tablets-for-v1-all-devices-as-a-planned-post-v1-phase)): the `.ink` payload must be engine-neutral geometry** — ordered page-space points with pressure/tilt/timestamp — **not `androidx.ink`'s native `ink-storage` blob.** If the native format is used for speed, store the neutral geometry alongside it and treat the neutral form as canonical.
+> **Why this belongs here and not in the cross-platform epic:** a native-blob payload cannot be read by a future iOS `PencilKitInkEngine`, and there is no migration path once user notes exist in it — the geometry is locked inside an Android-only format. **Same class of irreversible mistake as the R1 screen-pixel rule.** Costs ~1 ed here; unfixable later. The `.ink` header already carries an `engineId` field ([`17-data-spec.md`](17-data-spec.md) §3) anticipating multiple engines — that only pays off if the payload is portable too.
 **Deps:** VAHI-101.
 
 ### VAHI-110 · ★ Coordinate model and view transform 🟨 Core types done (Session 6) · M
@@ -428,6 +430,49 @@ Sized coarsely; re-plan when it is actually next.
 | VAHI-705 | Plus tier + billing ([D16](22-decisions.md#d16--freemium-with-a-generous-free-tier-no-page-caps)) | L |
 | VAHI-706 | Account screen rewrite ([D10](22-decisions.md#d10--no-auth-wall-account-is-optional-and-requested-in-context)) | M |
 | VAHI-707 | Server-side backup and restore | L |
+
+---
+
+## E8 — v1.5: All Android devices ("Axis A")
+
+Full plan: [`23-cross-platform-plan.md`](23-cross-platform-plan.md) Part 5. **Gated on v1 shipping** — do not start earlier. Entirely within the current Android codebase: no KMP, no new build system, no second language. Re-scopes [D2](22-decisions.md#d2--tablet-only-for-v1) per [D17](22-decisions.md#d17--android-tablets-for-v1-all-devices-as-a-planned-post-v1-phase).
+
+| ID | Item | Size |
+|---|---|---|
+| VAHI-801 | Window-size-class infrastructure + adaptive scaffolding (builds on the existing `WindowInfo.kt`) | M |
+| VAHI-802 | Library adaptive layout — `GridCells.Adaptive`, carousel recents | M |
+| VAHI-803 | Editor adaptive layout — tool rail becomes a **bottom bar** on Compact (the left-rail hand-occlusion logic in doc 12 §3.1 assumed a landscape tablet and is wrong on a phone) | M |
+| VAHI-804 | Overlays → bottom sheets on Compact (retires the popover-anchoring bug class entirely) | S |
+| VAHI-805 | Settings single-pane drill-down on Compact | S |
+| VAHI-806 | Per-size-class canvas zoom defaults and min-scale clamps (doc 16 §2.2) | S |
+| VAHI-807 | Foldable support — fold seam, state across the fold configuration change | M |
+| VAHI-808 | Cross-size test pass (phone/tablet/foldable × portrait/landscape) | M |
+
+**≈ 14 ed.** Cheaper than iOS and reaches more of the target user — most students with a tablet also own a phone.
+
+---
+
+## E9 — v2.0+: iOS via Kotlin Multiplatform ("Axis B")
+
+Full plan: [`23-cross-platform-plan.md`](23-cross-platform-plan.md) Part 6. **Gated on E8 completing** — doing this first means building iPhone layouts twice. Also gated on phone usage data justifying the spend, and (realistically) on sync existing, since "works on iPad" without sync means a second, unrelated set of notes.
+
+| ID | Item | Size |
+|---|---|---|
+| VAHI-901 | KMP module restructuring (`commonMain`/`androidMain`/`iosMain`) + build setup | M |
+| VAHI-902 | Hilt → **Koin** (Hilt has no KMP path) | M |
+| VAHI-903 | Navigation coordinate swap + iOS back-swipe | M |
+| VAHI-904 | Room → KMP driver (`androidx.sqlite`) | M |
+| VAHI-905 | ★ **`PencilKitInkEngine`** — the second ink engine, behind the existing `InkEngine` interface | XL |
+| VAHI-906 | Engine-neutral `.ink` cross-engine round-trip compatibility + tests | M |
+| VAHI-907 | ML Kit Digital Ink iOS binding (cinterop) — **the API does exist on iOS**; this is binding work, not reinvention | M |
+| VAHI-908 | PDF via PDFKit (if v1.1 shipped) | L |
+| VAHI-909 | iOS platform conventions — safe areas, Dynamic Type, VoiceOver, share sheet, file picker | M |
+| VAHI-910 | iOS build, signing, App Store Connect, TestFlight | M |
+| VAHI-911 | QA matrix expansion (ongoing thereafter, not one-off) | L |
+
+**≈ 45 ed**, plus a standing **+30–40% on all subsequent feature work** — two ink engines, two stores, two QA surfaces, forever.
+
+> ⚠️ **`VAHI-905` is the risk item, and `VAHI-102` (Android ink engine) carries a prerequisite for it:** the `.ink` payload must be **engine-neutral geometry**, not `androidx.ink`'s native blob. Get that wrong and Android-written notes are permanently unreadable on iOS with no migration path — the same class of one-way door as the R1 coordinate rule. See [`23-cross-platform-plan.md`](23-cross-platform-plan.md) Part 4 and X3.
 
 ---
 

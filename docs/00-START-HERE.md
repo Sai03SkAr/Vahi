@@ -29,7 +29,7 @@ The app has a **complete UI shell** (splash → auth → home → canvas), **wor
 >
 > **The next action is `VAHI-008` → `VAHI-101`: get a real mid-range Android tablet and measure ink latency**, which settles decision D6. This is now the binding constraint — every device-independent item that could reasonably precede it is done. In parallel, on-device verification of everything Session 6 shipped would be high-value and needs no further planning, just a device.
 >
-> **A cross-platform (iOS) question was raised and researched this session — see [D17 below](#4-settled-decisions) and `22-decisions.md` D17.** Short version: technically feasible via Kotlin Multiplatform, but the ink engine (the product's core differentiator) cannot be shared with iOS — `androidx.ink` is Android-only — and the decision cuts against the confirmed D2/D3 thesis. **Not started; needs the owner's call.**
+> **All-device support (phones, foldables, iPad, iPhone) is now planned and settled as a post-v1 phase** — [D17](22-decisions.md#d17--android-tablets-for-v1-all-devices-as-a-planned-post-v1-phase), planned in full in [`23-cross-platform-plan.md`](23-cross-platform-plan.md). **Nothing is started, and v1 scope is unchanged.** Two things from it matter to work happening *now*: (1) keep using window size classes rather than hardcoded dp — free, keeps the door open; (2) **`VAHI-102` gained a hard acceptance criterion — the `.ink` payload must be engine-neutral geometry, not `androidx.ink`'s native blob** — otherwise Android notes become permanently unreadable on a future iOS build, with no migration path.
 
 ### What Session 6 changed
 
@@ -84,6 +84,7 @@ The app has a **complete UI shell** (splash → auth → home → canvas), **wor
 | D14 | Single Gradle module until a named trigger fires | ✅ |
 | D15 | Offline-first — local DB is the source of truth | ✅ |
 | D16 | Freemium, generous free tier, **no page caps** | 🔬 owner's call |
+| D17 | Android tablets for v1; all devices (phone/foldable/iPad/iPhone) as a planned post-v1 phase | ✅ |
 | V1–V3 | Paper theme · Noto fonts · lavender accent | 🔬 |
 | V4 | Figma owns visuals; the specs own behaviour | 🔬 not yet reconciled |
 | V5 | Empty-state illustration style | 🔲 open |
@@ -145,12 +146,13 @@ Sources: [ink releases](https://developer.android.com/jetpack/androidx/releases/
 | `18-architecture-target.md` | …add a ViewModel, a dependency, or a package |
 | `19-quality-bar.md` | …call anything done. Budgets, device matrix, a11y, tests, DoD |
 | `20-release-plan.md` | …think about shipping |
+| `23-cross-platform-plan.md` | …think about phones, foldables, iPad or iPhone. **Post-v1; nothing started.** Its Part 8 is the only part affecting work today. |
 
 ### Tier 4 — Execution
 
 | Doc | What it is |
 |---|---|
-| **`21-backlog.md`** | **The execution spine.** 75 numbered items, sized, dependency-ordered |
+| **`21-backlog.md`** | **The execution spine.** ~94 numbered items, sized, dependency-ordered (E8/E9 are the post-v1 all-device epics) |
 | **`22-decisions.md`** | **Authoritative decision log.** 22 ADRs |
 | **`PROJECT-LOG.md`** | Append-only session record |
 

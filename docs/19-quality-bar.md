@@ -30,6 +30,8 @@
 | Input | Finger-only · capacitive stylus (no pressure) · active stylus (pressure + barrel button) |
 | OS | Oldest supported · current · newest |
 | Screen | 10" · 12"+ · split-screen · free-form window |
+| *(v1.5+)* Form factor | **Phone (Compact) · foldable folded/unfolded** — added when [E8](21-backlog.md) lands; see [`23-cross-platform-plan.md`](23-cross-platform-plan.md) Part 5 |
+| *(v2.x)* Platform | **iPad · iPhone**, each with its own stylus story (Apple Pencil / none) — see that plan's Part 6. Note this roughly doubles every row above it, which is most of the standing +30–40% cost on post-port feature work. |
 | Locale | English · हिन्दी |
 | Font scale | 100 % · 200 % |
 | Theme | Light · Dark · Dark app + white paper · Light app + dark paper |
