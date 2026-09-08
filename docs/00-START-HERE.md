@@ -10,36 +10,34 @@ Read this file completely, then the four documents marked **Required** in §6. T
 
 **Vahi** is a native Android digital notebook — handwriting-first, tablet-first, built entirely in Kotlin with Jetpack Compose. Target users: **students in India on Android tablets**. The intended differentiator: **Indic-script handwriting recognition**.
 
-The app has a **complete UI shell** (splash → auth → home → canvas), **working freehand pen drawing**, and **a canvas tool rail**. It has **no persistence, no backend, no real authentication, and no ViewModels**. Everything lives in in-memory Compose state and is lost the moment you leave a screen or rotate the device.
+The app has a **complete UI shell** (splash → auth → home → canvas), **working freehand pen drawing**, **a canvas tool rail**, and — as of Session 6 — **real navigation-compose routing** and a **fixed undo/erase/clear model**. It still has **no persistence, no backend, no real authentication, and no ViewModels**. Ink is lost the moment you leave the canvas or rotate the device — the navigation *position* now survives that, the canvas *content* does not.
 
 - **Repo:** `/Users/saisalelkar/Desktop/Vahi` · branch `main` · remote `origin/main`
 - **Package:** `com.vahi.app` · single Gradle module `:app`
-- **Stack:** Kotlin 2.0.21 · Compose BOM 2024.09.00 · Material 3 · minSdk 26 / target 36
-- **Size:** 25 Kotlin source files, ~2,790 lines. Largest: `HomeScreen.kt` at 990 lines.
-- **Build:** `./gradlew :app:assembleDebug` → **BUILD SUCCESSFUL** (verified Session 4)
+- **Stack:** Kotlin 2.1.20 · Compose BOM 2025.01.01 · AGP 8.13.2 · Material 3 · `navigation-compose` · minSdk 26 / target 36
+- **Size:** 26 Kotlin source files, ~3,750 lines (incl. 7 test files, 42 tests). Largest: `HomeScreen.kt` at 990 lines.
+- **Build:** `./gradlew :app:assembleDebug` and `:app:testDebugUnitTest` → **BUILD SUCCESSFUL** (verified Session 6)
 - **Design:** [`vahi-v1` on Figma](https://www.figma.com/design/JJAGOm1by1gHE6Nxe4yUhx/vahi-v1?node-id=0-1) — owner-authored, not yet reconciled with the docs ([V4](22-decisions.md#v4--figma-is-the-visual-source-of-truth-the-docs-describe-behaviour), `VAHI-004`)
 
 ---
 
 ## 2. Current phase
 
-> ### PLANNING COMPLETE · IMPLEMENTATION NOT STARTED
+> ### IMPLEMENTATION IN PROGRESS · FOUNDATION WORK STARTED
 >
-> **Track A (stabilise) shipped in Session 4.** Foundations F1–F5 — ink architecture, coordinate model, navigation/ViewModels, persistence, command history — are **not started**.
+> **Session 6 (2026-09-08) did the first real implementation pass**, working the backlog's device-independent items in order: committed the working tree (`VAHI-001`), upgraded the dependency baseline (`VAHI-002`), configured backup rules (`VAHI-005`), fixed the tool rail's four shipped defects including the most severe bug in the project — an unrecoverable Clear button (`VAHI-003`) — replaced hand-rolled navigation with `navigation-compose` (`VAHI-201`, partial), added the coordinate-model types (`VAHI-110`, types only, not yet wired in), and fixed the undo/erase stack conflation (`VAHI-007`/`VAHI-120`). **7 of the 20 catalogued bugs are now fixed** (#5, #8, #13, #15, #16, #18, #19); bug #1 is half-fixed. Full detail: `PROJECT-LOG.md`'s newest entry.
 >
-> **Session 5 (2026-09-08) completed the detailed plan**: nine new specification documents (14–22), verified the three external dependencies the strategy rests on, and re-audited the source, finding eight further defects.
->
-> **The next action is [`VAHI-001`](21-backlog.md#vahi-001--commit-the-working-tree): commit the working tree.** Then `VAHI-002` (upgrade dependencies) and `VAHI-008`/`VAHI-101` (get a real tablet and measure ink latency).
+> **The next action is `VAHI-008` → `VAHI-101`: get a real mid-range Android tablet and measure ink latency**, which settles decision D6. This is now the binding constraint — every device-independent item that could reasonably precede it is done. In parallel, on-device verification of everything Session 6 shipped (the Undo snackbar, TalkBack on the tool rail, whether navigation position genuinely survives rotation now) would be high-value and needs no further planning, just a device.
 
-### What Session 5 changed, in three bullets
+### What Session 6 changed, in three bullets
 
-1. **The ink decision got much easier.** `androidx.ink` **1.0.0 went stable on 2025-12-17**, ships **Compose-native** low-latency authoring (no `AndroidView` interop, contrary to the earlier assumption), and is what `androidx.pdf` builds *its* annotation layer on. Three of the four things that make Vahi a product — ink feel, PDF annotation, Indic recognition — key off this one choice. [D6](22-decisions.md#d6--ink-architecture-adopt-androidxink) moved from open to a strong recommendation. The latency benchmark still has to run.
-2. **Two serious new bugs, both reachable today.** A resting palm draws instead of the stylus ([#14](09-project-status.md)), and the tool rail's Clear button destroys the page unrecoverably ([#13](09-project-status.md)). Neither was known before.
-3. **The plan became executable.** [`21-backlog.md`](21-backlog.md) has 75 numbered items with sizes, dependencies and acceptance criteria — ~88 engineering-days to v1.0.
+1. **The most severe bug in the project is fixed.** The tool rail's Clear button destroyed a page with no way back, one tap below Undo/Redo. It now snapshots the page and offers an "Undo" snackbar. Three more shipped tool-rail defects fixed alongside it (40dp touch targets, missing content descriptions, hardcoded colours, a px/dp unit mixup in the width preview).
+2. **Two of the five foundations have real down-payments, not just specs.** Navigation is genuinely `navigation-compose` now (bug #8 fixed by construction). The coordinate-model *types* from `16-canvas-spec.md` §2 exist and are tested (24 tests, no Robolectric needed — confirms they're genuinely Android-free) — but nothing in the app uses them yet; wiring them into the canvas is separate, later work.
+3. **Nothing was verified on a device**, same as every prior session — this environment still has no GUI. Every fix above is verified by compilation, 42 passing unit tests, and reading the code, not by touching a screen.
 
 ### Still true, and still the thing that most needs doing
 
-**Nothing has ever been verified on a device.** Every session so far has run in an environment with no GUI. Session 4's toolbar, insets and dropdown fixes are compile-safe and visually unverified; Session 5's bugs #13–#20 were found by reading code, not by reproducing them. `VAHI-008` — get a real tablet — unblocks more than any other single item.
+**Nothing has ever been verified on a device.** `VAHI-008` — get a real tablet — unblocks more than any other single item: the D6 latency benchmark, on-device confirmation of everything fixed this session, and the two most severe *remaining* open bugs — #14 (a resting palm draws instead of the stylus) and #17 (an in-progress stroke is discarded on back) — both need a device to even reproduce, let alone fix with confidence.
 
 ---
 
@@ -214,18 +212,25 @@ Read these first, in order:
 Context so you don't re-derive it:
 - Vahi is a handwriting notebook for students on Android tablets, Indian market.
   Kotlin + Jetpack Compose, single module, package com.vahi.app.
-- The UI shell works end to end, pen drawing works, and a canvas tool rail exists.
-  There is NO persistence, no backend, no ViewModels, no navigation library.
-- Planning is COMPLETE. docs/22-decisions.md is the authoritative decision log —
-  do not re-open anything marked Accepted.
-- docs/21-backlog.md is the execution spine. Work items are VAHI-###.
-  The next action is VAHI-001 unless the log says otherwise.
-- HARD RULE: the coordinate model (VAHI-110) must land BEFORE any persistence
-  (VAHI-301). Strokes are currently in screen pixels and would be unmigratable.
+- The UI shell works end to end, pen drawing works, a canvas tool rail exists, and
+  (Session 6) navigation is real navigation-compose with typed routes. There is
+  still NO persistence, no backend, no ViewModels, no Hilt.
+- Implementation is IN PROGRESS. Planning is complete; docs/22-decisions.md is the
+  authoritative decision log — do not re-open anything marked Accepted.
+- docs/21-backlog.md is the execution spine. Work items are VAHI-###. Several are
+  already done or partially done (VAHI-001/002/003/005/110/120, VAHI-201 partial)
+  — check status there before assuming an item hasn't started.
+- The next action is VAHI-008 -> VAHI-101: get a real mid-range Android tablet and
+  measure ink latency. This settles decision D6 and is now the binding blocker —
+  everything device-independent that could precede it is done.
+- HARD RULE: the coordinate model (VAHI-110 — types now exist in core/model/, but
+  are NOT yet wired into the canvas) must be actually wired in BEFORE any
+  persistence (VAHI-301). Strokes are currently still in screen pixels in
+  practice and would be unmigratable if persisted as-is.
 - androidx.ink 1.0.0 is STABLE and Compose-native. D6 recommends adopting it;
   the latency benchmark (VAHI-101) still has to run on a real mid-range tablet.
-- Nothing has ever been verified on a device. Bugs #13-#20 were found by code
-  review, not reproduced.
+- Nothing has ever been verified on a device, in any session including the ones
+  that wrote code. Everything is verified by compilation and unit tests only.
 - There is a Figma design (docs/22-decisions.md V4) that has not been read yet.
 
 Keep all documentation updated as we go, per docs/00-START-HERE.md section 7.

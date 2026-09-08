@@ -8,6 +8,48 @@ Purpose: if a session ends abruptly or a usage limit is hit, the next session re
 
 ---
 
+## 2026-09-08 — Session 6: First implementation pass (VAHI-001–003, 005, 110, 120, 201-partial)
+
+**Requested:** "start implementation, think logically and do everything properly." Explicit go-ahead to write code, following the plan and backlog from Session 5.
+
+### Approach
+
+Asked first whether to checkpoint the large uncommitted tree before touching any of the same files — the standing git-safety rule is never to commit without being asked. User chose "commit in logical chunks." Worked the backlog in dependency order, verifying `:app:assembleDebug` and `:app:testDebugUnitTest` after every change, and updating the affected as-built docs in the same commit as the code, per `00-START-HERE.md` §7. **No work in this session touched a real device** — everything was verified by compilation, unit tests, and reading the code; on-device behaviour (touch response, TalkBack, visual layout) remains unverified, as it has been every session so far.
+
+### Done
+
+**VAHI-001 — Committed the working tree**, six logical commits: Media3 dependency (had to land first — `SplashScreen.kt` needs it to compile) · launcher icon PNGs · the ink engine + canvas host · Session 4's UX/bug fixes · IDE metadata · the full documentation set. Repo went from one commit + a large uncommitted diff to a readable, buildable history.
+
+**VAHI-002 — Upgraded the dependency baseline.** Kotlin 2.0.21→2.1.20, core-ktx 1.10.1→1.15.0, lifecycle 2.6.1→2.8.7, activity-compose 1.8.0→1.9.3, Compose BOM 2024.09.00→2025.01.01. AGP deliberately stays at 8.13.2 — AGP 9 is a separate breaking-change migration, not required to unblock Room/Hilt/Navigation, and not something to fold silently into a routine catalog refresh without on-device verification available. Migrated the deprecated `kotlinOptions` DSL to `compilerOptions`. Declared `lifecycle-viewmodel-compose`/`lifecycle-runtime-compose`/`kotlinx-coroutines-android` explicitly (`BaseViewModel` previously compiled only via transitive deps). Added Robolectric — needed almost immediately, see below.
+
+**VAHI-005 — Configured backup rules explicitly**, excluding the future database and per-notebook ink files from Auto Backup on both API 26-30 and 31+, ahead of persistence landing (decision D13).
+
+**VAHI-003 — Fixed four shipped tool-rail defects, including the most severe bug found this week.** `CanvasState.clearAll()` was destroying the redo stack alongside the strokes, making a mis-tap on a 48dp Clear button — sitting directly below Undo/Redo — unrecoverable data loss in a notes app (bug #13). Fixed with a snapshot-and-restore mechanism (`undoClear()`) and a Snackbar "Undo" action in `CanvasScaffold.kt`. Also fixed: 40dp touch targets that should have been 48dp (an inner `.padding(4.dp)` was shrinking the clickable region), zero content descriptions on any control, hardcoded hex colours throughout (now `MaterialTheme.colorScheme.*` plus five new named ink-palette constants in `Color.kt`), and a width-preview that reinterpreted a canvas-pixel value as a dp value. 6 new Robolectric tests. **This was the point Robolectric earned its place in the catalog** — `Stroke.path` is `android.graphics.Path`-backed, so `CanvasState` can't be tested on a plain JVM.
+
+**VAHI-201 (partial) — Replaced hand-rolled navigation with `navigation-compose`.** `AppRoot.kt` was a `when` over an `AppDestination` enum with a manually-synchronised `selectedNotebookType` side channel — if that was ever null while the destination expected it, the screen silently rendered nothing (bug #8). Replaced with four type-safe, `kotlinx.serialization`-backed routes; the `Editor` route carries `canvasType: CanvasType` directly, so that failure mode has nowhere left to occur. This also removed the reason for `NotebookCanvasScreen.kt` to exist — it was a thin adapter whose only job was mapping an identical `NotebookType` enum onto `CanvasType` 1:1. Deleted both `AppDestination.kt` and `NotebookCanvasScreen.kt`. **Explicitly partial:** `CanvasState` is still `remember`-scoped inside `CanvasScreen`, so rotating the device on the canvas still drops every stroke — bug #1's harder half is unchanged and needs `VAHI-110`'s types actually wired in plus persistence.
+
+**VAHI-110 (core types) — Added `core/model/`**, the coordinate model from `16-canvas-spec.md` §2: `ScreenPoint`/`DocumentPoint`/`PagePoint`/`PageSize` as **distinct types** (not a shared `Offset` distinguished only by naming — closes off the exact class of unit-mixing bug just fixed in VAHI-003), `ViewTransform` (scale + pan via the real `androidx.compose.ui.unit.Density`), and `PageLayout` (the page-strip model, precomputed offsets, width-centring for mixed page sizes). This is the first code built directly onto the target package shape in `18-architecture-target.md` §2. 24 unit tests, all plain JVM — no Robolectric needed, confirming these types have zero Android/native dependency, unlike `Stroke`. **Explicitly partial:** nothing in the app uses this model yet; wiring it into the canvas is separate, later work, deliberately not bundled in here since it would mean touching the ink engine before the `androidx.ink` decision (D6) is settled.
+
+**VAHI-007/120 — Fixed the undo/erase stack conflation (bug #5).** Erased strokes were pushed onto the same list used for stroke-add redo, so `redo()` could un-erase a stroke instead of replaying whatever was actually undone, and drawing after an erase silently made it permanent. Replaced with a private `StrokeCommand` sealed type (`Add`, `Erase`) and separate undo/redo stacks, plus a `beginErase()`/`finishErase()` gesture lifecycle so an entire erase drag — many pointer samples — becomes one undo step, not one per sample. `Clear` deliberately stays on VAHI-003's separate mechanism rather than being folded into this stack (documented reason: a stale snackbar could otherwise undo the wrong action). 11 new tests.
+
+**Documentation:** every doc touched by the above updated in the same commit as the code — `09-project-status.md` (bugs #5, #8, #13, #15, #16, #18, #19 all now marked fixed; bug #1 marked half-fixed with the remaining half explained), `08-file-reference.md`, `05-drawing-engine.md`, `02-architecture.md` (Navigation and State management sections rewritten), `01-overview.md`, `03-app-flow.md`, `04-screens.md`, `18-architecture-target.md`, `21-backlog.md` (7 items updated with honest "done vs. not done" scope notes, critical path diagram updated). Along the way, corrected several pieces of doc drift that **predated this session** — `03-app-flow.md` still claimed "there is no toolbar on the canvas," stale since Session 4; `08-file-reference.md` still described `undo`/`redo`/`clearAll` as "uncalled," also stale since Session 4.
+
+### State at end
+
+Build green throughout: `:app:assembleDebug` and `:app:testDebugUnitTest` (42 tests, all passing) succeeded after every commit. Working tree clean, 9 new commits on `main`. Bugs fixed this session: **#5, #8, #13, #15, #16, #18, #19** (7 of the 20 catalogued). Bug #1 (rotation) half-fixed. Bug #14 (palm rejection — still the most severe open issue) and bug #17 (stroke discarded on back) are untouched.
+
+### Explicitly not done, and why
+
+- **`VAHI-202` (Hilt)** — deliberately skipped. Nothing to inject yet (no repository exists); adding DI scaffolding with nothing using it would be exactly the kind of premature infrastructure the plan's own "wasted-work rule" warns against. Pick it up when `VAHI-301` (Room) lands.
+- **On-device verification of anything in this session** — no GUI in this environment, as in every prior session. The tool-rail fixes, the navigation rewrite's rotation behaviour, and all four "fixed" bugs are verified by compilation, unit tests, and code reading only.
+- **`VAHI-101` (ink latency benchmark)** — needs a physical mid-range Android tablet. This is now the most important blocker: everything device-independent that could reasonably precede it is done.
+
+### Next action
+
+Get a real mid-range Android tablet (`VAHI-008`) and run the ink latency benchmark (`VAHI-101`), which settles decision D6 (`androidx.ink` vs. the hand-rolled fallback) and unblocks `VAHI-102`. In parallel, on-device verification of everything shipped this session — particularly bug #13's fix (the Undo snackbar) and bug #16's fix (TalkBack actually reading the tool rail correctly) — would be high-value and needs no further planning, just a device.
+
+---
+
 ## 2026-09-08 — Session 5: Detailed planning, spec build-out, source re-audit
 
 **Requested:** plan everything in detail — read the existing documentation and enhance it, plan the UI and how to make everything user-friendly, find the flaws and solve them, refine everything, and produce proper documentation and files for all of it. Explicitly: implementation comes later, and documentation is to be kept updated as it proceeds. Mid-session the owner shared an existing Figma design.

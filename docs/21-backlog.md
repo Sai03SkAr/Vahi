@@ -11,40 +11,46 @@
 
 ## Summary
 
+> **Updated end of Session 6 (2026-09-08, implementation).** E0 is effectively done. E2 and E1 have real down-payments (navigation, coordinate types, command history) — sized at "items done" not "epic done," since each remaining item in those epics is still its own real piece of work.
+
 | Epic | Theme | Items | Size | Status |
 |---|---|---|---|---|
-| **E0** | Stabilise & de-risk | 9 | ~7 ed | ⬜ |
-| **E1** | Ink foundation (F1, F2, F5) | 10 | ~17 ed | ⬜ |
-| **E2** | App foundation + UI rebuild (F3) | 13 | ~24 ed | ⬜ |
-| **E3** | Persistence (F4) | 9 | ~16 ed | ⬜ |
+| **E0** | Stabilise & de-risk | 9 | ~7 ed | 🟨 7/9 done — `VAHI-004` blocked on the owner, `VAHI-006` blocked on `VAHI-205`/D11 |
+| **E1** | Ink foundation (F1, F2, F5) | 10 | ~17 ed | 🟨 2/10 started — `VAHI-110` (types only), `VAHI-120` (scoped fix) |
+| **E2** | App foundation + UI rebuild (F3) | 13 | ~24 ed | 🟨 1/13 done — `VAHI-201` (partial) |
+| **E3** | Persistence (F4) | 9 | ~16 ed | ⬜ Not started — correctly blocked on `VAHI-110`/`VAHI-102` |
 | **E4** | v1.0 completion & release | 14 | ~24 ed | ⬜ |
 | **E5** | v1.1 — PDF & organisation | 7 | ~19 ed | ⬜ |
 | **E6** | v1.2 — Recognition & search | 6 | ~14 ed | ⬜ |
 | **E7** | v2.0 — Accounts & sync | 7 | ~33 ed | ⬜ |
 
-**To v1.0 release: ≈ 88 engineering-days.** Multiply by your own throughput and a focus factor of 0.6–0.7 for a calendar estimate.
+**To v1.0 release: ≈ 88 engineering-days** at the estimates above; Session 6 closed roughly 5–6 ed of that. Multiply by your own throughput and a focus factor of 0.6–0.7 for a calendar estimate.
 
 ### The critical path
 
 ```
-VAHI-001 commit tree
-   └─▶ VAHI-002 upgrade deps ──▶ VAHI-101 ink benchmark ──▶ VAHI-102 InkEngine
-                    │                                              │
-                    └──▶ VAHI-201 navigation ──┐                   │
-                                               ▼                   ▼
-                                      VAHI-110 coordinate model ───┤
+VAHI-001 ✅ commit tree
+   └─▶ VAHI-002 ✅ upgrade deps ──▶ VAHI-101 ⬜ ink benchmark ──▶ VAHI-102 ⬜ InkEngine
+                    │                (needs a real tablet)              │
+                    └──▶ VAHI-201 🟨 navigation ──┐                     │
+                          (nav done; canvas        ▼                     ▼
+                           state still remember-  VAHI-110 🟨 coordinate model
+                           scoped, ink still lost   (types done, not yet wired
+                           on rotation)              into the canvas)   │
                                                │                   │
                                                ▼                   ▼
-                                      VAHI-301 Room schema ◀───────┘
+                                      VAHI-301 ⬜ Room schema ◀───────┘
                                                │
                                                ▼
-                                      VAHI-305 ★ MILESTONE: nothing is lost
+                                      VAHI-305 ⬜ ★ MILESTONE: nothing is lost
                                                │
                                                ▼
                                       E4 ──▶ v1.0
 ```
 
-**The hard ordering rule, restated:** `VAHI-110` (coordinate model) **must** complete before `VAHI-301` (persistence). Strokes stored in screen pixels cannot be migrated — you will not know what device or zoom produced them. Do not relax this under schedule pressure.
+**The hard ordering rule, restated:** `VAHI-110` (coordinate model) **must** complete before `VAHI-301` (persistence). Strokes stored in screen pixels cannot be migrated — you will not know what device or zoom produced them. Do not relax this under schedule pressure. **This rule now has teeth** — the types exist — but `VAHI-301` still correctly waits, because the types aren't wired into the canvas yet and the ink-engine decision (`VAHI-101`) hasn't been made.
+
+**The next real blocker is `VAHI-101`: it needs a physical mid-range Android tablet.** Everything device-independent that could reasonably be done ahead of it — dependency baseline, navigation, coordinate math, command history, the worst shipped bugs — is now done. What's left either needs a device (`VAHI-008`→`VAHI-101`, on-device verification of everything in this session) or needs the ink-engine/data-layer decision that benchmark settles.
 
 ---
 

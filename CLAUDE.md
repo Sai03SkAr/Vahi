@@ -8,7 +8,7 @@ Read this before doing anything. Then read `docs/00-START-HERE.md`.
 
 **Vahi** — a native Android handwriting notebook for students on Android tablets, Indian market. Kotlin + Jetpack Compose, single module `:app`, package `com.vahi.app`.
 
-Working UI shell + freehand drawing + a canvas tool rail. **No persistence, no backend, no ViewModels, no navigation library.** Planning is complete; implementation has not started.
+Working UI shell + freehand drawing + a canvas tool rail + (Session 6) real `navigation-compose` routing. **No persistence, no backend, no ViewModels, no Hilt.** Planning is complete; implementation is in progress — check `docs/21-backlog.md` for what's already done before assuming an item hasn't started.
 
 ---
 
@@ -85,7 +85,7 @@ Docs `01`–`09` describe **reality**. Docs `10`–`22` describe **intent**. Do 
 - **`androidx.pdf` builds its annotation layer on `androidx.ink`**, so the two decisions are coupled.
 - **ML Kit Digital Ink runs fully on-device** and covers all nine target Indic scripts.
 - **Nothing has ever been run on a device.** Every session so far has had no GUI. Bugs #13–#20 were found by code review and have not been reproduced. Say so rather than implying verification you did not do.
-- **`BaseViewModel` compiles only through transitive dependencies** — `lifecycle-viewmodel` and `kotlinx-coroutines` are not declared.
+- **`BaseViewModel` still has no subclass anywhere** — it's a well-formed generic base waiting for its first real ViewModel. (Its dependencies were declared explicitly in `VAHI-002`, Session 6 — it no longer relies on them arriving transitively.)
 - **The Figma design exists** and has not been read: https://www.figma.com/design/JJAGOm1by1gHE6Nxe4yUhx/vahi-v1?node-id=0-1
 
 ---
@@ -99,6 +99,7 @@ Docs `01`–`09` describe **reality**. Docs `10`–`22` describe **intent**. Do 
 | Wiring up the ~20 no-op buttons | They all need a repository. Doing it against the hardcoded 2-item list is work you throw away twice. |
 | Optimising the grid canvas | It is being replaced by the page model. `docs/22` D1. |
 | Splitting `HomeScreen.kt` before its ViewModel | You would refactor the same 990 lines twice. |
-| Adding Room, Hilt or Navigation onto the current dependency baseline | Compose BOM 2024.09.00 and 2023-era AndroidX against `compileSdk 36`. Upgrade first (`VAHI-002`). |
+| Adding Hilt with nothing to inject yet | `VAHI-202` was deliberately deferred in Session 6 — no repository exists. Pick it up when Room (`VAHI-301`) lands. |
+| Wiring the coordinate model into the canvas before `VAHI-101`/`VAHI-102` | `VAHI-110`'s types exist (`core/model/`) but aren't used by `CanvasState`/`DrawingCanvas` yet, on purpose — that wiring touches the ink engine, which shouldn't happen before the `androidx.ink` decision (D6) is settled by the latency benchmark. |
 | Building phone layouts | Tablet-only for v1 by decision (D2). |
 | Assuming a pressure-sensitive stylus | The target market often has none. Design for the finger; treat stylus data as an enhancement. |
