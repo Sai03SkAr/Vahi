@@ -284,7 +284,7 @@ download."
 
 ## D11 — Drop the video splash and the Media3 dependency
 
-**Status:** 🔬 Provisional (Session 5, 2026-09-08) — *this one is a product/brand call as much as a technical one, so it is flagged for the owner rather than assumed.*
+**Status:** ✅ Accepted and implemented (Session 7, 2026-09-08) — confirmed with the project owner in conversation before implementing. See `VAHI-205` in [`21-backlog.md`](21-backlog.md).
 
 **Decision.** Replace the ExoPlayer video splash with the **Android 12+ `SplashScreen` API** plus a short Compose brand animation, and **remove `androidx.media3` entirely**.
 

@@ -29,5 +29,10 @@ data class NotebookEntity(
     /** Soft-delete marker (docs/17-data-spec.md R3) — null means not deleted.
      *  Powers the library's "Undo" snackbar via a restore, rather than a
      *  confirmation dialog before the delete. */
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    /** docs/17-data-spec.md Part 7 (`VAHI-309`) — points at the single local
+     *  `ProfileEntity` row. Not surfaced on the domain `Notebook`: nothing above
+     *  the repository needs to reason about profile ownership yet (single local
+     *  profile only, until `VAHI-702` sign-in exists). */
+    val ownerProfileId: String
 )

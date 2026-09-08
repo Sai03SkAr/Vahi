@@ -10,13 +10,13 @@ Read this file completely, then the four documents marked **Required** in §6. T
 
 **Vahi** is a native Android digital notebook — handwriting-first, tablet-first, built entirely in Kotlin with Jetpack Compose. Target users: **students in India on Android tablets**. The intended differentiator: **Indic-script handwriting recognition**.
 
-The app has a **complete UI shell** (splash → library → canvas, auth wall removed as of Session 7), **working freehand pen drawing**, **a canvas tool rail**, and — as of Session 6 — **real navigation-compose routing** and a **fixed undo/erase/clear model**. It still has **no backend, no real authentication, and no ink persistence** (notebook metadata persists via Room; strokes do not yet). Ink is lost the moment you leave the canvas or rotate the device — the navigation *position* now survives that, the canvas *content* does not.
+The app has a **complete UI shell** (system splash → library → canvas, auth wall removed as of Session 7), **working freehand pen drawing**, **a canvas tool rail**, and — as of Session 6 — **real navigation-compose routing** and a **fixed undo/erase/clear model**. It still has **no backend, no real authentication, and no ink persistence** (notebook metadata, app preferences and local profile identity all persist; strokes do not yet). Ink is lost the moment you leave the canvas or rotate the device — the navigation *position* now survives that, the canvas *content* does not.
 
 - **Repo:** `/Users/saisalelkar/Desktop/Vahi` · branch `main` · remote `origin/main`
 - **Package:** `com.vahi.app` · single Gradle module `:app`
-- **Stack:** Kotlin 2.1.20 · Compose BOM 2025.01.01 · AGP 8.13.2 · Material 3 · `navigation-compose` · Room · Hilt · minSdk 26 / target 36
-- **Size:** 34 Kotlin source files, ~4,370 lines (incl. 8 test files, 51 tests). Largest: `HomeScreen.kt` at ~870 lines.
-- **Build:** `./gradlew :app:assembleDebug` and `:app:testDebugUnitTest` → **BUILD SUCCESSFUL** (verified Session 6)
+- **Stack:** Kotlin 2.1.20 · Compose BOM 2025.01.01 · AGP 8.13.2 · Material 3 · `navigation-compose` · Room · Hilt · DataStore · minSdk 26 / target 36
+- **Size:** 41 Kotlin source files, ~4,750 lines (incl. 9 test files, 62 tests). Largest: `HomeScreen.kt` at ~1,150 lines (`VAHI-206`'s still-pending split).
+- **Build:** `./gradlew :app:assembleDebug` and `:app:testDebugUnitTest` → **BUILD SUCCESSFUL** (verified Session 7)
 - **Design:** [`vahi-v1` on Figma](https://www.figma.com/design/JJAGOm1by1gHE6Nxe4yUhx/vahi-v1?node-id=0-1) — owner-authored, not yet reconciled with the docs ([V4](22-decisions.md#v4--figma-is-the-visual-source-of-truth-the-docs-describe-behaviour), `VAHI-004`)
 
 ---
@@ -27,9 +27,9 @@ The app has a **complete UI shell** (splash → library → canvas, auth wall re
 >
 > **Session 6 (2026-09-08) did the first real implementation pass, in two parts.** Part 1 worked the backlog's device-independent items in order: committed the working tree (`VAHI-001`), upgraded the dependency baseline (`VAHI-002`), configured backup rules (`VAHI-005`), fixed the tool rail's four shipped defects including the most severe bug in the project — an unrecoverable Clear button (`VAHI-003`) — replaced hand-rolled navigation with `navigation-compose` (`VAHI-201`, partial), added the coordinate-model types (`VAHI-110`, types only, not yet wired in), and fixed the undo/erase stack conflation (`VAHI-007`/`VAHI-120`). Part 2 (same day, extended pass) added a real persistence foundation: Room + Hilt + `LibraryViewModel` (`VAHI-202`, `VAHI-301`/`VAHI-303`/`VAHI-304` scoped to notebook metadata) — **notebooks are now genuinely created, listed, opened, pinned and deleted-with-undo**, not hardcoded. **7 of the 20 catalogued bugs are now fixed** (#5, #8, #13, #15, #16, #18, #19); bug #1 is half-fixed. Full detail: `PROJECT-LOG.md`'s two newest entries.
 >
-> **Session 7 (2026-09-08) implemented D10** (`VAHI-006`, `VAHI-205` split): the auth wall is off the startup path — `Splash` now navigates straight to `Library`, and the tablet-only fallback moved from `AuthScreen` to the app shell (`AppRoot.kt`), so every destination is protected, not just one. `AuthScreen` stays in the nav graph, unreached, until `VAHI-406` gives it a Settings entry point. Also fixed the two emoji (`🐦`, `🔍`) that were genuine accessibility violations — no `contentDescription` at all (`VAHI-204`, partial; the other ten glyphs already have correct `semantics` and are deliberately left for when Figma iconography lands). The video splash (`D11`) was **not** touched — still owner-gated.
+> **Session 7 (2026-09-08), two passes.** First pass implemented D10 (`VAHI-006`, `VAHI-205` partial): the auth wall off the startup path, the tablet-only fallback moved to the app shell, plus the two emoji that were genuine accessibility violations fixed (`VAHI-204`, partial). Second pass, after re-deriving backlog status from the file itself rather than trusting an earlier summary (E4–E7 — most of the v1.0 product — were still `⬜`, not "done"), picked up everything that was actually unblocked: **D11 implemented** after checking back with the owner — the `ExoPlayer`/`media3` video splash is deleted, replaced with the Android system `SplashScreen` API (`VAHI-205` now fully done); **`VAHI-307`** (DataStore preferences — `AppTheme`/`PaperTheme`/`Handedness`/finger-draw/default-paper/language, not yet wired to any UI); **`VAHI-309`** (local profile identity — every notebook now carries `ownerProfileId`, caught and fixed a real get-or-create race in the same pass); **`VAHI-408`** (title search — the search bar was decorative with zero input; now real). 62 tests, up from 51, all passing.
 >
-> **The next action is `VAHI-008` → `VAHI-101`: get a real mid-range Android tablet and measure ink latency**, which settles decision D6. This is now the binding constraint — every device-independent item that could reasonably precede it is done. In parallel, on-device verification of everything shipped so far would be high-value and needs no further planning, just a device.
+> **The next action is `VAHI-008` → `VAHI-101`: get a real mid-range Android tablet and measure ink latency**, which settles decision D6. This is now the binding constraint — every device-independent item that could reasonably precede it is done, except `VAHI-406` (Settings screen, L-sized, next up — needs `VAHI-307`, which just landed). In parallel, on-device verification of everything shipped so far would be high-value and needs no further planning, just a device.
 >
 > **All-device support (phones, foldables, iPad, iPhone) is now planned and settled as a post-v1 phase** — [D17](22-decisions.md#d17--android-tablets-for-v1-all-devices-as-a-planned-post-v1-phase), planned in full in [`23-cross-platform-plan.md`](23-cross-platform-plan.md). **Nothing is started, and v1 scope is unchanged.** Two things from it matter to work happening *now*: (1) keep using window size classes rather than hardcoded dp — free, keeps the door open; (2) **`VAHI-102` gained a hard acceptance criterion — the `.ink` payload must be engine-neutral geometry, not `androidx.ink`'s native blob** — otherwise Android notes become permanently unreadable on a future iOS build, with no migration path.
 
@@ -58,7 +58,7 @@ The app has a **complete UI shell** (splash → library → canvas, auth wall re
 
 5. **Target hardware changes the engineering.** Budget tablets make performance a *requirement*, not polish — and **you cannot assume a pressure-sensitive stylus is present.** Design for the finger case; treat stylus data as an enhancement.
 
-6. **Time-to-ink is the key UX metric.** Currently 3 taps plus a forced video on *every* launch, landing on a new blank page each time. Target: ≤ 1 tap, ≤ 2 s. ([`12-ux-plan.md`](12-ux-plan.md) Part 1.)
+6. **Time-to-ink is the key UX metric.** The forced video splash and the auth wall are both gone as of Session 7 — launch now goes straight to the library. Landing on a new blank page each time (rather than the last-edited one) is still unsolved. Target: ≤ 1 tap, ≤ 2 s. ([`12-ux-plan.md`](12-ux-plan.md) Part 1.)
 
 7. **The repo has one commit and everything else is uncommitted.** A single mistaken `git checkout` costs the entire project. Fix this first. (`VAHI-001`.)
 
@@ -80,7 +80,7 @@ The app has a **complete UI shell** (splash → library → canvas, auth wall re
 | D8 | PDF annotation via `androidx.pdf` + `androidx.ink` | 🔬 pending a spike |
 | D9 | On-device ML Kit Digital Ink for recognition | ✅ |
 | D10 | No auth wall — account optional, requested in context | ✅ |
-| D11 | Drop the video splash and the Media3 dependency | 🔬 owner's call |
+| D11 | Drop the video splash and the Media3 dependency | ✅ implemented (Session 7) |
 | D12 | `minSdk` 26 until PDF forces 28 | ✅ |
 | D13 | Android Auto Backup disabled for notebook data | ✅ |
 | D14 | Single Gradle module until a named trigger fires | ✅ |
@@ -91,7 +91,7 @@ The app has a **complete UI shell** (splash → library → canvas, auth wall re
 | V4 | Figma owns visuals; the specs own behaviour | 🔬 not yet reconciled |
 | V5 | Empty-state illustration style | 🔲 open |
 
-**Needs the project owner, not an engineer:** D11 (splash video), D16 (monetisation shape), V4 (Figma access), V5 (illustration), and the second Indian language after Hindi.
+**Needs the project owner, not an engineer:** D16 (monetisation shape), V4 (Figma access), V5 (illustration), and the second Indian language after Hindi.
 
 ---
 

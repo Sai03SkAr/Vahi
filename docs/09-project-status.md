@@ -80,7 +80,7 @@ Vahi is a **UI prototype with a working ink engine and no data layer**. You can 
 - No sign-in vs. sign-up mode distinction.
 
 ### Home screen features
-Every one of these is a no-op: search, all three filter tabs, all three view-mode toggles, the sort dropdown, the Import button, Upgrade, and every row in all three dropdown menus (delete, edit, share, pin, lock, Profile, Preferences, Help, Logout, Account, Notifications, Upgrade to Plus).
+**Real (Session 6/7):** create, list, open, the "All"/"Pinned notes" filter tabs, pin/unpin (both the filter and the card menu's toggle), delete-with-undo, title search (`VAHI-408`). **Still no-ops:** both grid/list view-mode toggles, the sort dropdown, the Import button, Upgrade, and the remaining dropdown-menu rows (edit, share, lock, Profile, Preferences, Help, Logout, Account, Notifications, Upgrade to Plus).
 
 ### Import PDF
 Selected in the modal, dispatched to `{ /* Import handled separately */ }`. No PDF rendering dependency, no file picker, no storage permission.
@@ -133,10 +133,12 @@ Erased strokes were pushed onto `_undoneStrokes` — the same list used for stro
 
 11 new unit tests in `CanvasStateUndoRedoTest.kt` (Robolectric), covering: redo never un-erasing, undo/redo of an erase, one-drag-one-undo-step, an empty erase drag not consuming an undo slot, and the redo-stack being correctly invalidated by new ink after an undo. Verified: `:app:testDebugUnitTest` and `:app:assembleDebug` both `BUILD SUCCESSFUL`.
 
-### 6. ✅ FIXED (Session 4) — Splash could hang forever
+### 6. ✅ FIXED (Session 4), then the whole mechanism removed (Session 7) — Splash could hang forever
 `onTimeout()` only fired on `Player.STATE_ENDED`. There was no `onPlayerError` handler and no timeout fallback, so a media failure left the user permanently on the splash screen.
 
-**Fix applied:** `SplashScreen.kt` now has an `onPlayerError` listener and a 6-second `LaunchedEffect` fallback timer, both guarded by a `hasNavigated` flag so `onTimeout()` fires exactly once regardless of which path triggers it.
+**Fix applied (Session 4):** `SplashScreen.kt` gained an `onPlayerError` listener and a 6-second `LaunchedEffect` fallback timer, both guarded by a `hasNavigated` flag so `onTimeout()` fired exactly once regardless of which path triggered it.
+
+**Superseded (Session 7, D11):** `SplashScreen.kt` — and the `ExoPlayer`/`media3` machinery this whole bug lived in — is deleted. Replaced with the Android system `SplashScreen` API, which has no playback state to hang on. This bug class can't recur, not just "is handled."
 
 ### 7. 🟡 PARTIALLY FIXED (Session 4, moved Session 7) — Auth was a dead end on phones
 Covered above. Decision D2 settled this as tablet-only for v1, so the "dead end" is intentional — but it looked like a bug (`Text("Auth (Mobile)")`, a debug string).

@@ -1,0 +1,6 @@
+<resources>
+    <!-- System SplashScreen API needs a plain color resource — it cannot reference
+         a Compose Color val or a gradient. Matches the former video splash's
+         background tone (SplashScreen.kt, removed in D11). -->
+    <color name="vahi_splash_background">#FFF8F6F4</color>
+</resources>

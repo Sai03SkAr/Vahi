@@ -4,7 +4,7 @@
 
 The name comes from *vahi* (वही) — the traditional Indian ledger/notebook.
 
-> **Status: implementation in progress, foundation work started.** The UI shell (splash → library → canvas, auth wall removed) is built and navigable, freehand drawing works with a real undo/redo/erase model, and the canvas has a tool rail. Notebook metadata (create/list/open/pin/delete-with-undo) persists via Room + Hilt + a real ViewModel. There is still **no backend, no real authentication, and no ink/stroke persistence** — the canvas itself is lost when you leave a screen or rotate the device.
+> **Status: implementation in progress, foundation work started.** The UI shell (system splash → library → canvas, auth wall removed, title search works) is built and navigable, freehand drawing works with a real undo/redo/erase model, and the canvas has a tool rail. Notebook metadata (create/list/open/pin/delete-with-undo/search), app preferences, and local profile identity all persist via Room + DataStore + Hilt + a real ViewModel. There is still **no backend, no real authentication, and no ink/stroke persistence** — the canvas itself is lost when you leave a screen or rotate the device.
 >
 > Detailed planning is complete: 23+ documents covering product scope, UX, the canvas, the data model, target architecture, quality budgets, release, a numbered backlog and a decision log. See [`docs/00-START-HERE.md`](docs/00-START-HERE.md) for exactly what's built vs. planned.
 

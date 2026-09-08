@@ -43,8 +43,13 @@ import kotlinx.serialization.Serializable
  * itself fix bug #1 (rotation losing canvas state): CanvasState itself is still
  * `remember`-scoped inside CanvasScreen, not hoisted into a ViewModel. That is
  * VAHI-110/VAHI-301 territory — see docs/18-architecture-target.md §4.
+ *
+ * No `Splash` destination: D11 replaced the old Compose splash screen (a forced
+ * wait behind an ExoPlayer video) with the Android system SplashScreen API,
+ * installed in `MainActivity` before `setContent` — it isn't part of the nav
+ * graph because it isn't Compose content, it's a system window shown during
+ * process cold-start and dismissed automatically on first frame.
  */
-@Serializable private data object Splash
 
 /** Declared but currently unreachable: docs/22-decisions.md D10 removes the auth
  *  wall from the startup path (launch → library directly). This destination stays
@@ -72,18 +77,7 @@ fun AppRoot() {
 
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Splash) {
-        composable<Splash> {
-            SplashScreen(
-                onTimeout = {
-                    // D10: launch → library directly, no forced auth wall.
-                    navController.navigate(Library) {
-                        popUpTo(Splash) { inclusive = true }
-                    }
-                }
-            )
-        }
-
+    NavHost(navController = navController, startDestination = Library) {
         composable<Auth> {
             AuthScreen(
                 onLoginSuccess = {

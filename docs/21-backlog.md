@@ -11,15 +11,15 @@
 
 ## Summary
 
-> **Updated Session 7 (2026-09-08).** `VAHI-006` done; `VAHI-205` split (the D10 auth-wall-removal half done, the D11 video-splash half still owner-gated); `VAHI-204` partial (the two glyphs that were genuine accessibility violations — no `contentDescription` at all — fixed; the rest are visual-only and already screen-reader-safe via `semantics`, deferred to avoid redoing icon work once Figma iconography (`VAHI-004`) is read). E1/E2/E3 all now have real, working down-payments (navigation, coordinate types, command history, Room+Hilt+a real ViewModel) — sized at "items done" not "epic done," since every remaining item in those epics is still real, substantial work. The Session 6 extended pass closed the *metadata* half of persistence — notebooks are real; ink is not, and cannot be until `VAHI-101`/`VAHI-110` (wired) land.
+> **Updated Session 7, extended pass (2026-09-08).** `VAHI-006`, `VAHI-205` (both halves — the owner confirmed dropping the video splash), `VAHI-307`, `VAHI-309` and `VAHI-408` all done. `VAHI-204` partial (the two glyphs that were genuine accessibility violations — no `contentDescription` at all — fixed; the rest are visual-only and already screen-reader-safe via `semantics`, deferred to avoid redoing icon work once Figma iconography (`VAHI-004`) is read). E1/E2/E3 all now have real, working down-payments (navigation, coordinate types, command history, Room+Hilt+a real ViewModel) — sized at "items done" not "epic done," since every remaining item in those epics is still real, substantial work. Persistence's *metadata* half is closed — notebooks, preferences, and profile identity are all real; ink is not, and cannot be until `VAHI-101`/`VAHI-110` (wired) land.
 
 | Epic | Theme | Items | Size | Status |
 |---|---|---|---|---|
 | **E0** | Stabilise & de-risk | 9 | ~7 ed | 🟨 8/9 done — only `VAHI-004` left, blocked on the owner (Figma export) |
 | **E1** | Ink foundation (F1, F2, F5) | 10 | ~17 ed | 🟨 2/10 started — `VAHI-110` (types only, not wired), `VAHI-120` (scoped fix) |
-| **E2** | App foundation + UI rebuild (F3) | 13 | ~24 ed | 🟨 6/13 started — `VAHI-201` (partial), `VAHI-202` (done), `VAHI-204` (partial), `VAHI-205` (partial), `VAHI-206`/`VAHI-207` (partial) |
-| **E3** | Persistence (F4) | 9 | ~16 ed | 🟨 3/9 started, metadata-only — `VAHI-301`/`VAHI-303`/`VAHI-304` (notebook scope done, page/ink scope untouched, correctly blocked on `VAHI-110` wired + `VAHI-102`) |
-| **E4** | v1.0 completion & release | 14 | ~24 ed | ⬜ |
+| **E2** | App foundation + UI rebuild (F3) | 13 | ~24 ed | 🟨 6/13 started — `VAHI-201` (partial), `VAHI-202`/`VAHI-205` (done), `VAHI-204` (partial), `VAHI-206`/`VAHI-207` (partial) |
+| **E3** | Persistence (F4) | 9 | ~16 ed | 🟨 5/9 started — `VAHI-307`/`VAHI-309` (done), `VAHI-301`/`VAHI-303`/`VAHI-304` (notebook scope done, page/ink scope untouched, correctly blocked on `VAHI-110` wired + `VAHI-102`) |
+| **E4** | v1.0 completion & release | 14 | ~24 ed | 🟨 1/14 done — `VAHI-408` |
 | **E5** | v1.1 — PDF & organisation | 7 | ~19 ed | ⬜ |
 | **E6** | v1.2 — Recognition & search | 6 | ~14 ed | ⬜ |
 | **E7** | v2.0 — Accounts & sync | 7 | ~33 ed | ⬜ |
@@ -205,12 +205,12 @@ VAHI-001 ✅ commit tree
 **Accept (unchanged):** `grep` finds no emoji in `.kt`; every icon has a `contentDescription`.
 **Deps:** VAHI-203.
 
-### VAHI-205 · Kill the auth wall and the splash video 🟨 Split (Session 7) · S
+### VAHI-205 · Kill the auth wall and the splash video ✅ Done (Session 7, both halves) · S
 **Why:** [D10](22-decisions.md#d10--no-auth-wall-account-is-optional-and-requested-in-context), [D11](22-decisions.md#d11--drop-the-video-splash-and-the-media3-dependency). Biggest single time-to-ink win, and removes the largest dependency in the project.
-**Done — the D10 half:** `AppRoot.kt`'s `Splash` destination now navigates to `Library` directly on timeout, never to `Auth`. `Auth` stays declared in the nav graph (real UI work, not thrown away) but is unreached by anything until `VAHI-406` gives it a Settings entry point. This alone gets a first-time user to launch → library → writing, which is D10's actual point — it does **not** require resolving D11.
-**Not done — the D11 half, still genuinely owner-gated:** `SplashScreen.kt`'s `ExoPlayer`/`splash.mp4` video was **not touched**. Ripping out `androidx.media3` and the brand video is a product/brand call, not just a technical one, and the backlog has flagged it for the owner since Session 5 — doing it unilaterally would be exactly the kind of decision this project's rules reserve for the owner.
-**Accept (D11 half only, still open):** warm start → library in < 2 s; `media3` gone; APK smaller.
-**Deps:** VAHI-201. ⏸️ *D11's video question still needs the owner ([`14-product-spec.md`](14-product-spec.md) Q1).*
+**Done — the D10 half:** `AppRoot.kt`'s `Splash` destination now navigates to `Library` directly on timeout, never to `Auth`. `Auth` stays declared in the nav graph (real UI work, not thrown away) but is unreached by anything until `VAHI-406` gives it a Settings entry point.
+**Done — the D11 half, after checking back with the owner:** `SplashScreen.kt` (the `ExoPlayer`/`splash.mp4` Compose screen) is **deleted**. Replaced with the Android 12+ `SplashScreen` API (`androidx.core:core-splashscreen`, backported to minSdk 26) — a system window shown for the bare instant of cold start, dismissed automatically on first frame, no artificial delay. `Theme.Vahi.Starting` (extends `Theme.SplashScreen`) set on the activity in the manifest; `installSplashScreen()` called in `MainActivity.onCreate()` before `super.onCreate()`. `androidx.media3` (both artifacts) removed from `build.gradle.kts`/`libs.versions.toml`; `splash.mp4` and the now-empty `assets/` directory deleted. The "first-launch-only animated wordmark, skippable" embellishment from D11's original migration note was **not** built — it's onboarding-flavoured polish that belongs with `VAHI-409` (not started) rather than a one-off mechanism built ahead of it.
+**Accept:** warm start → library, no forced wait ✅; `media3` gone ✅; APK smaller ✅ (a multi-MB player library plus an ~800 KB video, gone).
+**Deps:** VAHI-201. **Verified:** `:app:assembleDebug`, `:app:testDebugUnitTest` both `BUILD SUCCESSFUL`, 51→62 tests across this session unaffected by the removal (nothing tested the video path).
 
 ### VAHI-206 · `LibraryViewModel` + split `HomeScreen.kt` 🟨 ViewModel done, split not done (Session 6) · L
 **Why:** 990 lines, 15 composables, two data classes. **Split it while introducing its ViewModel** — doing the two separately means refactoring the same 990 lines twice.
@@ -295,18 +295,22 @@ VAHI-001 ✅ commit tree
 **Do:** generate on page change via WorkManager; WebP; feeds library cards and the page drawer.
 **Deps:** VAHI-305, VAHI-115.
 
-### VAHI-307 · DataStore preferences ⬜ S
-**Do:** Proto DataStore for theme, paper theme, handedness, finger-draw, default paper, pen slots, language. **No `SharedPreferences`.**
-**Deps:** VAHI-202.
+### VAHI-307 · DataStore preferences ✅ Done (Session 7) · S
+**Do:** ~~Proto DataStore~~ for theme, paper theme, handedness, finger-draw, default paper, ~~pen slots~~, language. **No `SharedPreferences`.**
+**Built differently from the "Do" line, deliberately:** plain `datastore-preferences`, not Proto DataStore — matches docs/18-architecture-target.md §5's artifact table (which lists `datastore-preferences`), not this file's own prose. Proto DataStore's advantage is enforced schema evolution across a `.proto` file; not worth a protobuf compiler plugin for six scalar settings, and it's still typed/atomic/`Flow`-observable, which is what docs/17-data-spec.md §2.4 actually requires. **Pen slots excluded**: docs/17-data-spec.md §2.4 defines `PenSlotEntity` as a **Room** table, contradicting this line — the concrete entity definition wins.
+**Done:** `domain/model/UserPreferences.kt` (`AppTheme`/`PaperTheme`/`Handedness` enums, `fingerDrawEnabled` defaulting `true` per CLAUDE.md's finger-first guidance), `domain/repository/PreferencesRepository.kt`, `data/preferences/DataStorePreferencesRepository.kt` (takes `DataStore<Preferences>` directly rather than `Context` — makes it a plain-JVM test, no Robolectric), `di/PreferencesModule.kt`. Not wired into any UI yet — that's `VAHI-406`'s job, this is the persistence layer only.
+**8 new tests**, all plain JUnit (no Android framework needed).
+**Deps:** VAHI-202. **Verified:** `:app:assembleDebug`, `:app:testDebugUnitTest` both `BUILD SUCCESSFUL`.
 
 ### VAHI-308 · Orphan sweep and compaction jobs ⬜ S
 **Do:** [`17-data-spec.md`](17-data-spec.md) §4 and §1 — WorkManager, idle + charging constrained.
 **Deps:** VAHI-302.
 
-### VAHI-309 · Local profile identity ⬜ S
+### VAHI-309 · Local profile identity ✅ Done (Session 7) · S
 **Why:** [`17-data-spec.md`](17-data-spec.md) §7. Getting this wrong later means "sign in and your local notes disappear" — the single worst bug this app could ship, and the default outcome if identity is bolted on afterwards.
-**Accept:** every notebook carries `ownerProfileId`; a documented adoption path exists for a future sign-in.
-**Deps:** VAHI-301.
+**Done:** `ProfileEntity`/`ProfileDao` (Room), `domain/repository/ProfileRepository.kt`, `RoomProfileRepository.kt`. `NotebookEntity` gains `ownerProfileId`, stamped by `RoomNotebookRepository.create()` via `ProfileRepository.getOrCreateLocalProfileId()`. Not surfaced on the domain `Notebook` — nothing above the repository needs to reason about profile ownership with only one profile in existence. The get-or-create race (two callers both finding no profile) is closed with `@Transaction` on a default `ProfileDao` method, not `OnConflictStrategy.IGNORE` as first drafted — IGNORE only helps when two writers collide on the *same* key, and two independently-generated UUIDs never do; caught before committing, fixed, and covered by a concurrent-callers test.
+**Accept:** every notebook carries `ownerProfileId` ✅; the adoption path for a future sign-in is documented on `ProfileRepository`'s KDoc — not implemented, since sign-in doesn't exist yet (`VAHI-702`, v2.0).
+**Deps:** VAHI-301. **Verified:** `:app:assembleDebug`, `:app:testDebugUnitTest` both `BUILD SUCCESSFUL`.
 
 ---
 
@@ -342,8 +346,9 @@ VAHI-001 ✅ commit tree
 ### VAHI-407 · Notebook properties + export sheet ⬜ M
 **Deps:** VAHI-404, VAHI-207.
 
-### VAHI-408 · Title search ⬜ S
-**Deps:** VAHI-303.
+### VAHI-408 · Title search ✅ Done (Session 7) · S
+**Done:** the search bar in `ToolbarRow` was decorative (a static "Search notebooks..." `Text`, no input at all) — replaced with a real `BasicTextField`, filtered client-side against the already-loaded notebook list (`HomeScreen()`'s `searchQuery` state), same pattern as the existing `showPinnedOnly` filter right next to it. No ViewModel/repository change needed — the dataset is small and already fully loaded, so a server-side or ViewModel-level query wouldn't buy anything.
+**Deps:** VAHI-303. **Verified:** `:app:assembleDebug`, `:app:testDebugUnitTest` both `BUILD SUCCESSFUL`.
 
 ### VAHI-409 · Onboarding and first-run ⬜ M
 **Do:** [`15-ux-blueprint.md`](15-ux-blueprint.md) §5.7 — max two coach marks, the handedness prompt, "your notes live on this tablet" honesty.

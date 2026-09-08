@@ -5,6 +5,7 @@ import com.vahi.app.data.database.dao.NotebookDao
 import com.vahi.app.data.database.entity.NotebookEntity
 import com.vahi.app.domain.model.Notebook
 import com.vahi.app.domain.repository.NotebookRepository
+import com.vahi.app.domain.repository.ProfileRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -15,7 +16,8 @@ import javax.inject.Inject
  * (docs/18-architecture-target.md §3).
  */
 class RoomNotebookRepository @Inject constructor(
-    private val dao: NotebookDao
+    private val dao: NotebookDao,
+    private val profiles: ProfileRepository
 ) : NotebookRepository {
 
     override fun observeAll(): Flow<List<Notebook>> =
@@ -33,7 +35,8 @@ class RoomNotebookRepository @Inject constructor(
                 colorArgb = colorArgb,
                 paperStyle = paperStyle,
                 createdAt = now,
-                updatedAt = now
+                updatedAt = now,
+                ownerProfileId = profiles.getOrCreateLocalProfileId()
             )
             dao.insert(entity)
             entity.toDomain()

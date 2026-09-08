@@ -2,4 +2,13 @@
 <resources>
 
     <style name="Theme.Vahi" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- D11: system splash, shown for the brief instant of cold start only — no
+         artificial delay, no video. postSplashScreenTheme hands control back to
+         Theme.Vahi as soon as the first frame is drawn. -->
+    <style name="Theme.Vahi.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/vahi_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.Vahi</item>
+    </style>
 </resources>

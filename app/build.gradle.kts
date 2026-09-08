@@ -93,9 +93,13 @@ dependencies {
     // arrived transitively via activity-compose / lifecycle-runtime-ktx.
     implementation(libs.kotlinx.coroutines.android)
 
-    // Media3 ExoPlayer for video splash
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui)
+    // Android 12+ SplashScreen API, backported to minSdk via the compat library —
+    // replaces the ExoPlayer video splash (D11): no forced wait, no media3.
+    implementation(libs.androidx.core.splashscreen)
+
+    // App-wide settings (VAHI-307) — see DataStorePreferencesRepository's KDoc for
+    // why this is the plain preferences flavour, not Proto DataStore.
+    implementation(libs.androidx.datastore.preferences)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

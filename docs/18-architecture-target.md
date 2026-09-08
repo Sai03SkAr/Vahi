@@ -52,7 +52,7 @@ com.vahi.app
 │   │   ├── entity/                 Room @Entity classes
 │   │   └── migration/              Migration_1_2.kt …
 │   ├── file/                       InkFileStore — .ink read/write/compact
-│   ├── preferences/                Proto DataStore
+│   ├── preferences/                DataStore (datastore-preferences)
 │   ├── ink/                        AndroidxInkEngine — the ONLY file that
 │   │                               imports androidx.ink
 │   ├── pdf/                        v1.1

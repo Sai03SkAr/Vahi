@@ -32,7 +32,7 @@ class RoomNotebookRepositoryTest {
             ApplicationProvider.getApplicationContext(),
             VahiDatabase::class.java
         ).allowMainThreadQueries().build()
-        repository = RoomNotebookRepository(database.notebookDao())
+        repository = RoomNotebookRepository(database.notebookDao(), RoomProfileRepository(database.profileDao()))
     }
 
     @After

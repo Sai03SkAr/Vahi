@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Person
@@ -28,6 +29,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -35,6 +37,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -102,6 +106,11 @@ fun HomeScreen(
     // isn't used here; see docs/21-backlog.md VAHI-207.
     var showPinnedOnly by remember { mutableStateOf(false) }
 
+    // Title search (VAHI-408) — same client-side-filter pattern as showPinnedOnly
+    // above, for the same reason: the dataset is small and already fully loaded,
+    // so there's nothing a server-side or ViewModel-level query would buy here.
+    var searchQuery by remember { mutableStateOf("") }
+
     // Button positions for anchoring overlays
     var settingsButtonPosition by remember { mutableStateOf(Offset.Zero) }
     var profileButtonPosition by remember { mutableStateOf(Offset.Zero) }
@@ -163,7 +172,12 @@ fun HomeScreen(
         }
     }
 
-    val visibleNotebooks = if (showPinnedOnly) uiState.notebooks.filter { it.isPinned } else uiState.notebooks
+    val visibleNotebooks = uiState.notebooks
+        .let { notebooks -> if (showPinnedOnly) notebooks.filter { it.isPinned } else notebooks }
+        .let { notebooks ->
+            if (searchQuery.isBlank()) notebooks
+            else notebooks.filter { it.title.contains(searchQuery, ignoreCase = true) }
+        }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -180,6 +194,8 @@ fun HomeScreen(
                 notebooks = visibleNotebooks,
                 showPinnedOnly = showPinnedOnly,
                 onFilterChanged = { showPinnedOnly = it },
+                searchQuery = searchQuery,
+                onSearchQueryChanged = { searchQuery = it },
                 onCreateNotebook = { openCreateNotebook() },
                 onOpenNotebook = { notebook -> onNavigateToCanvas(notebook.id, notebook.paperStyle) },
                 onSettings = { openSettings() },
@@ -614,6 +630,8 @@ private fun HomeContent(
     notebooks: List<Notebook>,
     showPinnedOnly: Boolean,
     onFilterChanged: (Boolean) -> Unit,
+    searchQuery: String,
+    onSearchQueryChanged: (String) -> Unit,
     onCreateNotebook: () -> Unit,
     onOpenNotebook: (Notebook) -> Unit,
     onSettings: () -> Unit,
@@ -642,7 +660,11 @@ private fun HomeContent(
 
         Spacer(Modifier.height(16.dp))
 
-        ToolbarRow(onCreateNotebook)
+        ToolbarRow(
+            onCreateNotebook = onCreateNotebook,
+            searchQuery = searchQuery,
+            onSearchQueryChanged = onSearchQueryChanged
+        )
 
         Spacer(Modifier.height(24.dp))
 
@@ -804,12 +826,18 @@ private fun FiltersRow(
 /* ---------- TOOLBAR ---------- */
 
 @Composable
-private fun ToolbarRow(onCreateNotebook: () -> Unit) {
+private fun ToolbarRow(
+    onCreateNotebook: () -> Unit,
+    searchQuery: String,
+    onSearchQueryChanged: (String) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Search bar on the left
+        // Search bar on the left — VAHI-408. Was a decorative Row with static
+        // "Search notebooks..." text and no input; now a real field, filtering
+        // visibleNotebooks by title (see the HomeScreen()-level searchQuery state).
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = Color(0xFFF8F8F8),
@@ -823,14 +851,31 @@ private fun ToolbarRow(onCreateNotebook: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = null, // decorative — "Search notebooks..." carries the label
+                    contentDescription = null, // decorative — the field's own label carries it
                     modifier = Modifier.size(16.dp),
                     tint = VahiTextPlaceholder
                 )
-                Text(
-                    text = "Search notebooks...",
-                    fontSize = 14.sp,
-                    color = VahiTextPlaceholder
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChanged,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = "Search notebooks" },
+                    singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, color = Color(0xFF333333)),
+                    cursorBrush = SolidColor(VahiAccentPurple),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = "Search notebooks...",
+                                    fontSize = 14.sp,
+                                    color = VahiTextPlaceholder
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
                 )
             }
         }

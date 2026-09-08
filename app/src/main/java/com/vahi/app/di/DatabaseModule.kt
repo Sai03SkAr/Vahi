@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.vahi.app.data.database.VahiDatabase
 import com.vahi.app.data.database.dao.NotebookDao
+import com.vahi.app.data.database.dao.ProfileDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -26,4 +27,7 @@ object DatabaseModule {
 
     @Provides
     fun provideNotebookDao(database: VahiDatabase): NotebookDao = database.notebookDao()
+
+    @Provides
+    fun provideProfileDao(database: VahiDatabase): ProfileDao = database.profileDao()
 }

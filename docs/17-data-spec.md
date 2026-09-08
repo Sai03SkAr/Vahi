@@ -161,7 +161,7 @@ data class PenSlotEntity(
 )
 ```
 
-Simple app preferences (theme, paper theme, handedness, finger-draw, default paper, language) live in **Proto DataStore**, not Room and not `SharedPreferences` — typed, atomic, and observable as a `Flow`. There is no `SharedPreferences` in the project today; do not introduce one.
+Simple app preferences (theme, paper theme, handedness, finger-draw, default paper, language) live in **DataStore** (the plain `datastore-preferences` artifact, not Proto DataStore — see the note on `VAHI-307` in [`21-backlog.md`](21-backlog.md) for why), not Room and not `SharedPreferences` — typed, atomic, and observable as a `Flow`. There is no `SharedPreferences` in the project today; do not introduce one.
 
 ### 2.5 Enums — persisted as strings, never ordinals
 

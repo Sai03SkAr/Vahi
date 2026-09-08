@@ -4,7 +4,9 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.vahi.app.data.database.dao.NotebookDao
+import com.vahi.app.data.database.dao.ProfileDao
 import com.vahi.app.data.database.entity.NotebookEntity
+import com.vahi.app.data.database.entity.ProfileEntity
 
 /**
  * `exportSchema = false` for now — see the note in `app/build.gradle.kts` above the
@@ -16,10 +18,11 @@ import com.vahi.app.data.database.entity.NotebookEntity
  * `fallbackToDestructiveMigration()` is banned in release builds — in a notes app
  * it means "silently delete the user's work."
  */
-@Database(entities = [NotebookEntity::class], version = 1, exportSchema = false)
+@Database(entities = [NotebookEntity::class, ProfileEntity::class], version = 1, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class VahiDatabase : RoomDatabase() {
     abstract fun notebookDao(): NotebookDao
+    abstract fun profileDao(): ProfileDao
 
     companion object {
         const val NAME = "vahi.db"

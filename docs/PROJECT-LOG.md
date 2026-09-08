@@ -8,6 +8,44 @@ Purpose: if a session ends abruptly or a usage limit is hit, the next session re
 
 ---
 
+## 2026-09-08 — Session 7, extended pass: D11 (drop the video splash), DataStore preferences, local profile identity, title search
+
+**Requested:** after the first Session 7 pass reported two remaining items ("everything is blocked on hardware, except a brand decision (D11) and the size of the remaining backlog"), the owner said to explain both plainly and then just proceed — "get it done then start with it." D11 was explained (what the video splash costs, why the docs proposed dropping it); the owner's reply was to go ahead. The "size of the backlog" point was corrected: E4–E7 aren't blocked, they're just large and hadn't been started.
+
+### D11 — the video splash is gone
+
+Checked back with the owner in conversation before touching this one, since the backlog has flagged it as a product/brand call since Session 5, not something to assume. Deleted `SplashScreen.kt` (the `ExoPlayer`/`PlayerView` Compose screen) and `assets/splash.mp4`. Replaced with the Android 12+ `SplashScreen` API via `androidx.core:core-splashscreen` (backported to minSdk 26): `Theme.Vahi.Starting` extends `Theme.SplashScreen` with `postSplashScreenTheme` pointing back at `Theme.Vahi`; `installSplashScreen()` called in `MainActivity.onCreate()` before `super.onCreate()`. `androidx.media3` (both artifacts) removed entirely from the dependency baseline. `AppRoot.kt` lost its `Splash` nav destination — the system splash isn't Compose content, so it was never a route; `Library` is now the `NavHost`'s `startDestination` directly. The "first-launch-only animated wordmark, skippable" flourish from D11's original migration note was deliberately **not** built — it's onboarding polish that belongs with `VAHI-409` (not started), not a mechanism worth building ahead of it.
+
+### VAHI-307 — DataStore preferences (persistence layer only, no UI yet)
+
+Found a real disagreement between two docs while reading the spec: `17-data-spec.md` prose says "Proto DataStore," `18-architecture-target.md`'s artifact table lists plain `datastore-preferences`. Went with the plain artifact — it's still typed/atomic/`Flow`-observable, which is what the data-spec's requirement actually is; Proto DataStore's real advantage (enforced schema evolution via a `.proto` file) isn't worth a protobuf compiler plugin for six scalar settings. Also found the backlog's own `VAHI-307` line listed "pen slots" as a DataStore field, contradicting `17-data-spec.md`'s own `PenSlotEntity`, which is a **Room** table — the concrete entity definition was treated as authoritative, pen slots excluded from this work.
+
+Built `domain/model/UserPreferences.kt` (`AppTheme`/`PaperTheme`/`Handedness` enums, matching [V1](22-decisions.md#v1--app-theme-and-paper-theme-are-separate-settings)'s exact option sets; `fingerDrawEnabled` defaults `true` per CLAUDE.md's "design for the finger" guidance), `domain/repository/PreferencesRepository.kt`, `data/preferences/DataStorePreferencesRepository.kt`, `di/PreferencesModule.kt` (kept separate from `RepositoryModule`, matching the module split the architecture doc names). The repository takes a `DataStore<Preferences>` directly rather than a `Context` — the usual `preferencesDataStore` property delegate is a process-wide singleton keyed by file path, awkward to re-create per test; injecting the `DataStore` instead made the whole test suite (8 tests) plain JUnit, no Robolectric, no Context. Not wired into any UI — that's `VAHI-406`.
+
+### VAHI-309 — local profile identity
+
+Built exactly to `17-data-spec.md` Part 7's spec: `ProfileEntity`/`ProfileDao` (Room), `domain/repository/ProfileRepository.kt`, `RoomProfileRepository`. `NotebookEntity` gained `ownerProfileId`, stamped on create via `ProfileRepository.getOrCreateLocalProfileId()` — not surfaced on the domain `Notebook`, since nothing above the repository needs to reason about profile ownership with exactly one profile in existence.
+
+**Caught and fixed a real bug in my own first draft before committing:** the initial `getOrCreateLocalProfileId()` used `@Insert(onConflict = OnConflictStrategy.IGNORE)` as a race guard, reasoning that two concurrent callers finding no profile would collide on insert. They wouldn't — each generates its own fresh random UUID, so two concurrent "create" attempts produce two rows with two different primary keys, and `IGNORE` never fires; the "exactly one profile" invariant the whole point of this item exists to protect would have silently broken under the one condition that actually matters (a fresh install). Fixed with `@Transaction` on a default `ProfileDao` method instead — SQLite's single-writer lock serializes the whole get-or-create body, so a second concurrent caller blocks until the first commits, then sees the row and never inserts a second one. Covered by a test that fires 20 concurrent `getOrCreateLocalProfileId()` calls and asserts exactly one distinct ID comes back.
+
+### VAHI-408 — title search
+
+The search bar in `HomeScreen.kt`'s `ToolbarRow` was decorative — a static `Text("Search notebooks...")` next to a search icon, no input at all. Replaced with a real `BasicTextField`, filtered client-side against the already-loaded notebook list, following the exact same pattern as the `showPinnedOnly` filter sitting right next to it in the same function (`HomeScreen()`-level `remember { mutableStateOf(...) }`, not routed through the ViewModel — the dataset is small and already fully loaded, so nothing would be gained by a ViewModel-level or server-side query).
+
+### Docs
+
+`21-backlog.md` (`VAHI-205` now fully done — both D10 and D11 halves; `VAHI-307`/`VAHI-309`/`VAHI-408` done; epic summary counts corrected), `22-decisions.md` (D11 → Accepted and implemented), `17-data-spec.md`/`18-architecture-target.md` (the Proto-DataStore-vs-plain-DataStore disagreement resolved in the docs, not just in code), `09-project-status.md` (the splash-hang bug entry marked superseded rather than just fixed — the whole mechanism it lived in no longer exists; the home-screen no-op list corrected — search, both filter tabs, and pin/delete are real now), `00-START-HERE.md`, `README.md`.
+
+### State at end
+
+Build green, **62 tests** (up from 51 at the top of this session), verified via `:app:assembleDebug` + `:app:testDebugUnitTest`. Two Session 7 passes now committed and pushed to `origin/main`.
+
+### Next action
+
+`VAHI-406` (Settings screen, L-sized) is next — its one dependency, `VAHI-307`, just landed. Still binding and unchanged beneath everything else: `VAHI-008` → `VAHI-101`, a real Android tablet, for the ink-latency benchmark that gates the ink engine, page model, and actual stroke persistence.
+
+---
+
 ## 2026-09-08 — Session 7: Implement D10 (kill the auth wall), partial emoji fix, doc accuracy sweep
 
 **Requested:** "continue with the work, tell me if everything is done or not, if anything remains then complete it" — a fresh-context continuation after a long prior session. Also granted push permission for the private repo ("the vahi repo on my account is private so u can push there").
