@@ -4,53 +4,41 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
 /**
- * Ruled canvas - VERTICAL lines spanning the entire canvas height.
+ * Ruled canvas content - vertical lines spanning full height.
+ * Mimics a lined notebook page with vertical ruling.
  */
 @Composable
-fun RuledCanvas() {
-    val scrollState = rememberScrollState()
-    val lineSpacing = 40f // pixels between vertical lines
-    val lineColor = Color(0x40B8D4E8) // Subtle blue with low opacity
-    val canvasHeight = 4000.dp // Simulates infinite scroll
+fun RuledCanvasContent() {
+    val density = LocalDensity.current
+    val lineSpacingDp = 32.dp // Doubled spacing - half the number of lines
+    val lineColor = Color(0xFFD0D8E0) // Light gray-blue color for all lines
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-        ) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(canvasHeight)
-            ) {
-                val lineCount = (size.width / lineSpacing).toInt()
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val lineSpacingPx = with(density) { lineSpacingDp.toPx() }
+            val lineCount = (size.width / lineSpacingPx).toInt()
 
-                // Draw VERTICAL lines
-                for (i in 0..lineCount) {
-                    val x = i * lineSpacing
-                    drawLine(
-                        color = lineColor,
-                        start = Offset(x, 0f),
-                        end = Offset(x, size.height),
-                        strokeWidth = 1f
-                    )
-                }
+            // Draw vertical lines from top to bottom
+            for (i in 1..lineCount) {
+                val x = i * lineSpacingPx
+                drawLine(
+                    color = lineColor,
+                    start = Offset(x, 0f),
+                    end = Offset(x, size.height),
+                    strokeWidth = 1f
+                )
             }
         }
     }
