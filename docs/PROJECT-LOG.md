@@ -1,0 +1,200 @@
+# Project Log
+
+Append-only record of what happened in each working session. **Newest entry at the top.**
+
+Purpose: if a session ends abruptly or a usage limit is hit, the next session reads the top entry and knows exactly where things stand. See [`00-START-HERE.md`](00-START-HERE.md) §7 for the maintenance protocol.
+
+**Entry format:** date · what was done · what changed · decisions made · state at end · next action.
+
+---
+
+## 2026-09-08 — Session 5: Detailed planning, spec build-out, source re-audit
+
+**Requested:** plan everything in detail — read the existing documentation and enhance it, plan the UI and how to make everything user-friendly, find the flaws and solve them, refine everything, and produce proper documentation and files for all of it. Explicitly: implementation comes later, and documentation is to be kept updated as it proceeds. Mid-session the owner shared an existing Figma design.
+
+### Done
+
+**Nine new specification documents (~5,400 lines):**
+
+| Doc | What it adds that didn't exist |
+|---|---|
+| `14-product-spec.md` | The missing product layer — v1 scope in/out with reasons, three concrete personas and how their needs conflict, jobs-to-be-done ranked by frequency, monetisation design, ten v1 exit criteria, competitive position |
+| `15-ux-blueprint.md` | The buildable UX — 20-item screen inventory, navigation graph and route table, ASCII wireframes, per-screen loading/empty/error matrix, gesture set, keyboard shortcuts, multi-window behaviour, handedness, microcopy rules |
+| `16-canvas-spec.md` | Coordinate spaces and transform math, the pointer arbitration **state machine**, four-tier palm rejection, brush degradation for no-stylus hardware, the layered render pipeline with culling, command model, autosave triggers |
+| `17-data-spec.md` | Five data rules, Room entities with indexed bounding boxes, the versioned `.ink` binary format, tombstones and compaction, migration policy, local-profile identity for a future sign-in, repository contracts |
+| `18-architecture-target.md` | Target package structure, layer contracts, state/event patterns (including why the editor is a deliberate exception), DI, threading policy, the dependency list, a 10-step migration order |
+| `19-quality-bar.md` | The numbers — three reference device tiers, latency/fps/memory/size/battery budgets, 11 accessibility requirements, testing strategy, the definition of done, the re-scored risk register |
+| `20-release-plan.md` | Build config, ProGuard needs, signing, permission timeline, privacy policy and Data Safety, crash reporting, Play listing, staged rollout, 10 pre-launch blockers (~6 ed) |
+| `21-backlog.md` | **The execution spine** — 75 numbered items (`VAHI-###`) across 8 epics, sized in engineering-days, dependency-ordered, with acceptance criteria. ~88 ed to v1.0. |
+| `22-decisions.md` | **Authoritative ADR log** — D1–D16 and V1–V5, each with reasoning, rejected alternatives, consequences and what would overturn it |
+
+**Also:** `CLAUDE.md` at the repo root — operating guide for future AI sessions.
+
+**Existing docs refreshed:** `00-START-HERE.md` (rewritten), `README.md`, `05-drawing-engine.md`, `08-file-reference.md`, `09-project-status.md`, `11-forward-plan.md`, `12-ux-plan.md`, `13-visual-design-system.md`.
+
+### Key findings
+
+**1. Three external dependencies verified — and the earlier plan was wrong about two things.**
+
+| Earlier assumption | Verified 2026-09-08 |
+|---|---|
+| `androidx.ink` is "a relatively young API — verify status yourself" | **1.0.0 stable since 2025-12-17.** Latest alpha 1.1.0-alpha07. |
+| "The authoring surface is View-based, so it needs `AndroidView` interop" | **False.** `ink-authoring-compose` provides an `InProgressStrokes` **composable**. |
+| PDF annotation would need a renderer built from scratch | **`androidx.pdf` 1.0.0-beta01 builds its annotation layer on `androidx.ink`** — pen, highlighter, eraser, forms, OCR. `minSdk 28`, Fragment-based. |
+| ML Kit Indic coverage assumed from recollection | **Confirmed:** fully on-device, all nine target scripts with BCP-47 identifiers, packs downloaded on demand. |
+
+**Consequence: D6 upgraded from "the one open decision gating everything" to a strong recommendation.** Three of the four things that make Vahi a product — ink feel, PDF annotation, Indic recognition — key off the same choice. The latency benchmark still has to run (`VAHI-101`), but the burden of proof has moved to *not* adopting.
+
+**2. Eight further defects found by re-reading the source (#13–#20), four of them in Session 4's own toolbar.**
+
+- **#14 (critical) — a resting palm draws instead of the stylus.** `event.changes.firstOrNull()` takes the first pointer and ignores the rest. A palm typically lands *before* the stylus tip, so the palm becomes pointer 1. Earlier docs recorded "no palm rejection"; the truth is stronger — the current handling **actively selects the wrong pointer**. On a tablet this is not an edge case, it is every stroke.
+- **#13 (high) — Clear is unrecoverable and one tap away.** `clearAll()` empties the redo stack alongside the stroke list, and `DrawingToolbar` wires it to a 48 dp button directly below Undo. A data-loss bug in shipped code, in a note-taking app.
+- **#15/#16/#18** — the tool rail's touch targets are 40 dp not 48 (modifier ordering), it has no content descriptions and only hardcoded colours (so it will be invisible on dark paper), and the width preview renders a pixel value as dp.
+- **#17** — leaving the editor mid-stroke silently discards the stroke.
+- **#19 (latent-high)** — `allowBackup="true"` with template rules where every rule is commented out. Harmless today; the moment Room lands, the whole database becomes Auto-Backup eligible with a silent 25 MB quota and a restore that can overwrite newer notes with older.
+- **#20** — the eraser skips strokes on a fast drag (no interpolation between samples).
+- **#12 verified as fixed** in Session 4; the doc was stale.
+
+**3. Structural gaps closed.** The prior doc set explained *why* and *what order*, but had no schema, no coordinate math, no gesture arbitration rules, no performance numbers, no monetisation design, no release process, and no work-item tracker. All of it would have been invented ad hoc at implementation time. That gap is now closed.
+
+**4. `media3` is the largest dependency in the project and it plays one logo animation** — on the critical path to first frame, on every launch, in a market where install size is a conversion factor.
+
+### Decisions made
+
+- **D6 upgraded** — adopt `androidx.ink` 1.0.0, pending the benchmark
+- **D7 reframed** — estimate in engineering-days, not calendar dates; the bandwidth question is sidestepped rather than guessed
+- **D8–D16 added** — PDF stack · ML Kit · no auth wall · drop the splash video · `minSdk` timing · Auto Backup off · single module until a named trigger · offline-first restated · freemium with no page caps
+- **V1–V3 restated** with reasoning; **V4 answered** (Figma exists); **V5 still open**
+- **D4 verified** as implemented
+
+### Open, and needing the project owner rather than an engineer
+
+1. **Figma access** — the file is login-gated and could not be read. Needs frame exports, a public view link, or a token export (`VAHI-004`).
+2. **D11** — keep the splash video as a brand asset, or drop it and Media3 with it?
+3. **D16** — is freemium-with-sync the right monetisation shape?
+4. **V5** — illustration style for empty states (recommendation: none for v1).
+5. Which Indian language ships second, after Hindi.
+
+### State at end
+
+**No application code written or modified.** The build is untouched and still succeeds. Documentation went from 14 files to 23, plus `CLAUDE.md`. The working tree remains uncommitted on top of a single commit — still the highest-probability way to lose the project.
+
+### Next action
+
+`VAHI-001` — commit the working tree in logical chunks. Then `VAHI-002` (upgrade the dependency baseline) and `VAHI-008` → `VAHI-101` (get a real mid-range tablet and measure ink latency, which settles D6).
+
+---
+
+## 2026-09-06 — Session 4: Track A implementation (first code changes)
+
+**Requested:** implement the minor/small items now (session budget was running low), defer major/foundational work to later. First session in which application code was written.
+
+**Done — all of Track A from `11-forward-plan.md`, plus a few small items from doc 12/13:**
+- **Built the canvas toolbar:** new file `ui/components/drawing/DrawingToolbar.kt` (241 lines) — a floating left-edge vertical rail wired directly to `CanvasState`. Pen/eraser toggle, 5 colour swatches, 3 width presets, undo/redo/clear (disabled states reflect `canUndo()`/`canRedo()`/`strokes.isNotEmpty()`). Wired into `CanvasScaffold.kt`. This activates six previously-unreachable `CanvasState` capabilities.
+- **Fixed bug #3** (dropdown px/dp anchoring): `HomeScreen.kt` now converts captured pixel offsets to dp via `LocalDensity` before using them as padding.
+- **Fixed bug #6** (splash could hang forever): `SplashScreen.kt` now has an `onPlayerError` listener and a 6-second fallback timeout, both guarded so `onTimeout()` fires exactly once.
+- **Fixed bug #9** (missing window insets): `HomeScreen.kt`'s content and `CanvasScaffold.kt`'s back arrow + new toolbar now apply `windowInsetsPadding(WindowInsets.safeDrawing)`.
+- **Fixed bug #7** (phone dead-end): `AuthFallbackLayout` now shows "Vahi works best on a tablet" instead of the debug string `"Auth (Mobile)"`. Still no functional path forward on phones — that's intentional per decision D2, not a bug.
+- **Deleted dead code:** `NotebookScreen.kt`, `ic_launcher_foreground.xml`, `res/values/colors.xml`, and four unused colour constants (`VahiCardMauve`, `VahiGoogleButtonBg`, `VahiAccentBlue`, `VahiAccentTeal`) from `Color.kt`.
+- **Resolved D4:** `VahiTheme`'s `dynamicColor` parameter now defaults to `false`.
+- **Fixed two WCAG-AA contrast failures:** added `VahiTextPlaceholder` (`#767676`, passes AA) to `Color.kt`; replaced `#999999` (Home search placeholder) and `#AAAAAA` (Auth field placeholders), which measured ≈2.85:1 and ≈2.3:1 respectively — both below the 4.5:1 minimum.
+
+**Verified before considering this done:**
+- `./gradlew :app:compileDebugKotlin` → BUILD SUCCESSFUL
+- `./gradlew :app:assembleDebug` → BUILD SUCCESSFUL (full build, confirms resource merging is clean after the deletions)
+- Grepped for dangling references to every deleted file/resource — none found
+
+**Explicitly NOT done, and why:**
+- **No on-device/emulator verification.** This environment has no GUI. The toolbar layout, insets behaviour, and dropdown positioning are compile-safe but visually unverified — flag this clearly to the user and recommend running on a real tablet or emulator before treating them as finished.
+- **The working tree was not committed.** Committing requires explicit user request under this assistant's standing operating rules; it wasn't given this session. The repo still has one commit (`89bafd3`), with Session 4's changes layered on top of the pre-existing uncommitted diff from before Session 1.
+- **Touch-target sizing (28dp/36dp → 48dp)** and **emoji → Material Symbols icon replacement** were scoped out as higher-risk-of-visual-regression without device testing, or larger than "minor." Confirmed via the `material-icons-core` jar (already on the classpath, no new dependency) that `Search`/`MoreVert`/`ArrowBack`/`Delete` are available but `Undo`/`Redo` are not — used text glyphs (`↶`/`↷`) for those instead, consistent with the app's existing icon conventions.
+- **No general hardcoded-colour migration** — only the two contrast-failing values were touched. A full migration to semantic tokens is intentionally deferred to ride along with the Track C ViewModel refactor (per `13-visual-design-system.md` §9's own sequencing advice — doing it twice would be wasted work).
+
+**State at end:** App compiles and builds successfully. Toolbar and bug fixes are code-complete but not visually verified. No foundational work (F1–F5) started.
+
+**Next action:** Visually verify this session's changes on a tablet or emulator. Then, when ready for major work: Track B of `11-forward-plan.md` — the ink architecture spike (D6).
+
+---
+
+## 2026-09-06 — Session 3: UX and visual design planning, continuity system
+
+**Requested:** plan the UI/UX — how to make it modern, attractive, user-friendly and easy to use — and set up documentation so work can resume smoothly on a different account if a usage limit is hit. Explicitly: no implementation.
+
+**Done:**
+- Wrote `docs/12-ux-plan.md` — UX plan
+- Wrote `docs/13-visual-design-system.md` — visual design plan
+- Wrote `docs/00-START-HERE.md` — cold-start entry point, settled decisions, resume prompt, doc maintenance protocol
+- Created this log
+- Updated `README.md` doc index
+
+**Key findings:**
+- **Time-to-ink is the critical UX metric and it's currently bad:** 3 taps plus a forced splash video on *every* launch, because no session persists and there's no "continue where you left off". Target: ≤1 tap, ≤2 seconds. Several recommendations follow from fixing just this.
+- **The auth wall is the biggest drop-off risk.** Four ambiguous fields (username + email + password + confirm, under a button labelled "Login") before the user sees anything. The app is offline-first by design, so an account isn't technically needed in v1 — let people in and ask later.
+- **Three colour values fail WCAG AA contrast:** `#999999` (≈2.85:1) and `#AAAAAA` (≈2.3:1) on white. `#666666` and `#333333` pass. `#767676` is the lightest grey that passes.
+- **Hand-occlusion drives toolbar placement.** A right-handed writer's palm covers the bottom-right of a landscape tablet. Recommended a floating **left-edge vertical tool rail**, mirrored via a handedness setting — not the conventional top bar.
+- **Pen slots** (3–5 always-visible preconfigured pens) collapse the common case to one tap, vs. four interactions for select→picker→choose→close.
+- **The font is a hard constraint, not a preference.** `FontFamily.Default` won't render Devanagari consistently across manufacturers. Needs a bundled family with verified Indic coverage.
+- **Dark mode has a product question inside it:** should the *paper* go dark? Recommended separating "App theme" from "Paper theme", storing ink colours unchanged and always exporting light.
+
+**Decisions made:** none new. Added open visual-design questions V1–V5 to doc 13.
+
+**State at end:** Planning complete across strategy, UX and visual design. **No application code written or modified.** The ~660 lines of uncommitted app code from before Session 1 are still uncommitted and untouched.
+
+**Next action:** Awaiting the user's go-ahead to begin implementation. First work would be Track A of `11-forward-plan.md`.
+
+---
+
+## 2026-09-06 — Session 2: Strategy and forward planning
+
+**Requested:** think independently about the project, plan how to take it forward, identify flaws to rectify. Explicitly: no implementation.
+
+**Done:**
+- Wrote `docs/11-forward-plan.md` — the reasoned plan
+- Marked `docs/10-roadmap.md` as superseded for ordering
+- Asked the user four decision questions; all four answered
+
+**Key findings:**
+- **Reframed the bug list:** the 12 catalogued bugs are really **3 genuine standalone bugs + 2 decisions + 7 symptoms of 5 missing foundations** (F1 ink architecture · F2 document/coordinate model · F3 state & navigation · F4 persistence · F5 command history).
+- **Identified a hard ordering constraint:** strokes are stored as a mutable `Path` in *screen pixel* coordinates. Persisting that produces unmigratable data. **F1 and F2 must precede F4.**
+- **Ink latency is a go/no-go gate.** Compose's normal draw pipeline carries 2–3 frames of latency; you cannot optimise past it inside a `Canvas`. Recommended spiking `androidx.ink` and *measuring*, rather than deciding from theory.
+- **Inferred the product thesis** from the codebase (name, "Maths notes"/"Python Problems" samples, PDF import prominence, freemium hooks) — student notebook, Android tablets, Indian market. **Confirmed correct by the user.**
+- **Target hardware changes the engineering:** budget tablets make performance a requirement rather than polish, and mean a pressure-sensitive stylus cannot be assumed.
+- **The differentiator has a dependency:** Indic handwriting recognition needs ordered stroke *input* data, not rendered paths — another reason F1 must be right first.
+
+**Decisions made:**
+- **D1 — Paged**, A4 (595 × 842 pt), units in points
+- **D2 — Tablet-only v1**, but fix the phone dead end
+- **D3 — Product thesis confirmed:** students, Android tablets, Indian market
+- **D5 — A real product to ship**, full foundations
+- **D6 left open deliberately:** ink architecture, pending a latency measurement
+
+**State at end:** No application code written or modified.
+
+---
+
+## 2026-09-06 — Session 1: Full project documentation
+
+**Requested:** go through the whole project in detail and produce complete documentation covering what the project is, its existing ideas, its flow, and all related details.
+
+**Done:**
+- Read every source file, resource, and build file in the repo
+- Wrote `README.md` and `docs/01` through `docs/10` (~1,880 lines)
+- Verified `./gradlew :app:compileDebugKotlin` → BUILD SUCCESSFUL
+
+**Key findings:**
+- The app is a **UI prototype with a working ink engine and no data layer**. Full flow is navigable; pen drawing works; nothing persists.
+- **Eraser, undo, redo, clear, colour and width are fully implemented but unreachable** — `activeTool` is never assigned anywhere and there is no canvas toolbar.
+- **12 bugs catalogued and ranked**, including: rotation destroys all state; the Grid canvas cannot scroll because `DrawingCanvas` consumes its pointer events; dropdown anchoring uses pixels as dp; the eraser deletes by bounding box; undo and erase share one stack; the splash can hang forever on a media error.
+- **Phones dead-end at the Auth screen** — `AuthFallbackLayout` receives no callback.
+- Dead code identified: `NotebookScreen.kt`, `BaseViewModel.kt` (never subclassed), four empty `package-info.kt` markers.
+- `BaseViewModel` compiles only via **transitive** dependencies — `lifecycle-viewmodel` and `kotlinx-coroutines` are not declared.
+
+**State at end:** No application code written or modified. Repo had one commit (`89bafd3 "update"`) plus ~660 lines of uncommitted app code, which were left untouched.
+
+---
+
+## Baseline — before Session 1
+
+- Single commit on `main`: `89bafd3 "update"`
+- ~660 insertions / 288 deletions uncommitted across 25 files: the entire `ui/components/drawing/` package, `CanvasScaffold.kt`, the launcher-icon replacement, and rewrites of `AuthScreen`, `HomeScreen`, `SplashScreen` and all three paper styles
+- No documentation of any kind existed
