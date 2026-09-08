@@ -23,10 +23,15 @@ import com.vahi.app.ui.components.drawing.CanvasState
 import com.vahi.app.ui.components.drawing.DrawingCanvas
 import com.vahi.app.ui.components.drawing.DrawingToolbar
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 
 /**
- * Canvas type enum.
+ * Canvas type enum. The former NotebookType enum in NotebookCanvasScreen.kt was an
+ * identical 1:1 duplicate of this one, purely to feed a now-removed adapter — see
+ * docs/09-project-status.md "Code quality observations". @Serializable so it can be
+ * carried directly as a navigation-compose type-safe route argument (AppRoot.kt).
  */
+@Serializable
 enum class CanvasType {
     BLANK,
     RULED,

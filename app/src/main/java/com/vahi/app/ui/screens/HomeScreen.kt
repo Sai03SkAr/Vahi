@@ -63,7 +63,7 @@ data class CardMenuAnchor(
 
 @Composable
 fun HomeScreen(
-    onNavigateToCanvas: (NotebookType) -> Unit = {}
+    onNavigateToCanvas: (CanvasType) -> Unit = {}
 ) {
     // Density for converting captured pointer/layout offsets (px) to dp for overlay positioning —
     // see docs/09, bug #3: these offsets come from positionInRoot() and are in pixels, not dp.
@@ -201,9 +201,9 @@ fun HomeScreen(
                     onOptionSelected = { option ->
                         isCreateNotebookOpen = false
                         when (option) {
-                            "Blank" -> onNavigateToCanvas(NotebookType.BLANK)
-                            "Ruled" -> onNavigateToCanvas(NotebookType.RULED)
-                            "Grid" -> onNavigateToCanvas(NotebookType.GRID)
+                            "Blank" -> onNavigateToCanvas(CanvasType.BLANK)
+                            "Ruled" -> onNavigateToCanvas(CanvasType.RULED)
+                            "Grid" -> onNavigateToCanvas(CanvasType.GRID)
                             "Import PDF" -> { /* Import handled separately */ }
                         }
                     }

@@ -171,11 +171,12 @@ VAHI-001 commit tree
 
 ## E2 — App foundation and UI rebuild (F3)
 
-### VAHI-201 · Navigation + typed routes ⬜ M
+### VAHI-201 · Navigation + typed routes 🟨 Partially done (Session 6) · M
 **Why:** highest ratio of problems-solved to effort in the plan. Kills bug #1 (rotation) and bug #8 (blank-screen desync) at once, and deletes the `selectedNotebookType` side channel.
-**Do:** `navigation-compose` with the [`15-ux-blueprint.md`](15-ux-blueprint.md) §3 route table; delete `AppDestination` and `AppRoot`'s `when`; implement the back-behaviour contract.
-**Accept:** rotation preserves destination and arguments; the back contract holds on every screen.
-**Deps:** VAHI-002.
+**Done:** `navigation-compose` with type-safe `kotlinx.serialization` routes (`Splash`, `Auth`, `Library`, `Editor(canvasType)`). Deleted `AppDestination.kt` and `AppRoot`'s hand-rolled `when`. Deleted `NotebookCanvasScreen.kt` — with `CanvasType` carried directly as the `Editor` route argument, its 1:1 `NotebookType`→`CanvasType` adapter had nothing left to do (also closes the "Duplicate enums" item in `09-project-status.md`'s code-quality table). Bug #8 (blank-screen desync) is fixed **by construction** — `Editor` cannot exist on the back stack without its `CanvasType`.
+**Not done — this is the "M" part, deferred deliberately rather than bundled in:** the [`15-ux-blueprint.md`](15-ux-blueprint.md) §3 route table's full shape (routes keyed by `notebookId`, not `canvasType`) needs real notebook entities, i.e. `VAHI-301`+`VAHI-304`; doing it now would mean designing routes against data that doesn't exist yet. The full back-behaviour contract (§3, e.g. "commit the in-progress stroke before navigating") also isn't wired up — `CanvasScreen`'s `BackHandler` still calls `onBack()` immediately, so bug #17 (stroke discarded on back) is unchanged.
+**Accept (partial):** rotation preserves the current destination and its arguments — verified by reading the `NavHost`/`rememberNavController` wiring; **not yet verified on a device** (`VAHI-008`). `CanvasState` itself is still `remember`-scoped, so ink is still lost on rotation (bug #1 unchanged) — this item only fixed the *navigation* half of that bug, not the *canvas state* half; the second half is `VAHI-110`/`VAHI-301`.
+**Deps:** VAHI-002. **Verified:** `:app:assembleDebug`, `:app:testDebugUnitTest` both `BUILD SUCCESSFUL`.
 
 ### VAHI-202 · Hilt + `VahiApplication` ⬜ S
 **Deps:** VAHI-002. **Blocks:** VAHI-301.

@@ -16,7 +16,7 @@ stateDiagram-v2
     HOME --> [*] : system back with no overlay open
 ```
 
-Four destinations, three forward transitions, one backward transition. That is the entire navigation graph.
+Four destinations, three forward transitions, one backward transition. That is the entire navigation graph — the *state names* above are unchanged by the Session 6 navigation rewrite, only the implementation underneath them (see [`02-architecture.md`](02-architecture.md) §Navigation).
 
 ## Startup sequence
 
@@ -25,11 +25,11 @@ Android launcher
   → MainActivity.onCreate()
       → enableEdgeToEdge()
       → setContent {
-            VahiTheme {                 // Material 3: dynamic colour on Android 12+,
-                AppRoot()               // otherwise Vahi light/dark scheme
+            VahiTheme {                 // dynamicColor = false (decision D4, Session 4) —
+                AppRoot()               // always the hand-authored Vahi light/dark scheme
             }
         }
-  → AppRoot: destination = SPLASH  (initial value)
+  → AppRoot: NavHost(startDestination = Splash)   // Session 6 — was `destination = SPLASH`
   → SplashScreen composes
 ```
 
@@ -186,24 +186,22 @@ Selection dispatch:
 
 ```kotlin
 when (option) {
-    "Blank"      -> onNavigateToCanvas(NotebookType.BLANK)
-    "Ruled"      -> onNavigateToCanvas(NotebookType.RULED)
-    "Grid"       -> onNavigateToCanvas(NotebookType.GRID)
+    "Blank"      -> onNavigateToCanvas(CanvasType.BLANK)   // was NotebookType before Session 6
+    "Ruled"      -> onNavigateToCanvas(CanvasType.RULED)
+    "Grid"       -> onNavigateToCanvas(CanvasType.GRID)
     "Import PDF" -> { /* Import handled separately */ }   // ← no-op
 }
 ```
 
-Note that options are dispatched by **string literal**, not by an enum — a fragility worth fixing.
+Note that options are dispatched by **string literal**, not by an enum — a fragility worth fixing (unrelated to the `NotebookType`→`CanvasType` change above; still open).
 
 ## Step 4 — Canvas
 
-**Files:** `NotebookCanvasScreen.kt` → `CanvasScaffold.kt` → one of `BlankCanvas.kt` / `RuledCanvas.kt` / `GridCanvas.kt`, plus `components/drawing/`.
+**Files:** `CanvasScaffold.kt` → one of `BlankCanvas.kt` / `RuledCanvas.kt` / `GridCanvas.kt`, plus `components/drawing/`. (Through Session 5 this was reached via a `NotebookCanvasScreen.kt` adapter; deleted in Session 6 — see [`02-architecture.md`](02-architecture.md) §Navigation.)
 
 ```mermaid
 flowchart TD
-    A["AppRoot: NOTEBOOK_CANVAS<br/>selectedNotebookType?.let"] --> B[NotebookCanvasScreen<br/>notebookType, onBack]
-    B --> C["maps NotebookType → CanvasType<br/>(1:1)"]
-    C --> D[CanvasScreen]
+    A["AppRoot: composable&lt;Editor&gt;<br/>backStackEntry.toRoute()"] --> D[CanvasScreen<br/>canvasType, onBack]
 
     D --> E["val canvasState = remember { CanvasState() }"]
     D --> F["BackHandler { onBack() } — always enabled"]
@@ -214,13 +212,17 @@ flowchart TD
     G --> G3[GRID → GridCanvasContent]
 
     D --> H["Layer 50 — DrawingCanvas(canvasState)"]
+    D --> H2["Layer 90 — DrawingToolbar(canvasState, onClear)"]
     D --> I["Layer 100 — BackArrowButton"]
+    D --> H3["Layer 110 — SnackbarHost (Undo after Clear)"]
 
     I --> I1["GRID: '←' in 44 dp grey circle,<br/>TopStart, 16 dp padding"]
     I --> I2["BLANK/RULED: '↓' bare glyph,<br/>BottomStart, 24 dp padding"]
 
-    I --> J[onBack → destination = HOME]
+    I --> J["onBack → navController.popBackStack()"]
 ```
+
+The route argument (`editor.canvasType`) arrives via `backStackEntry.toRoute<Editor>()` — see [`02-architecture.md`](02-architecture.md) §Navigation for the full route definitions.
 
 ### The three paper styles
 
@@ -236,15 +238,15 @@ flowchart TD
 
 Once on any canvas, pointer input goes to `DrawingCanvas`, which starts / continues / finishes strokes in `CanvasState` and repaints on every change. `activeTool` defaults to `PEN`.
 
-⚠️ **There is no toolbar on the canvas.** Nothing in the UI can change `activeTool`, `strokeColor`, or `strokeWidth`, and nothing calls `undo()`, `redo()`, or `clearAll()`. The eraser and the undo/redo stacks are fully implemented but unreachable. See [`05-drawing-engine.md`](05-drawing-engine.md).
+✅ **A toolbar exists** (`DrawingToolbar.kt`, added Session 4, fixed Session 6 — this paragraph was stale, predating both). A floating left-edge rail lets the user change `activeTool`, `strokeColor` and `strokeWidth`, and calls `undo()`, `redo()` and `clearAll()` (the last now snapshot-and-undoable, see [`09-project-status.md`](09-project-status.md) bug #13). `cancelStroke()` still has no caller anywhere — no gesture maps to it yet. See [`05-drawing-engine.md`](05-drawing-engine.md).
 
 ## Callback contract summary
 
-The complete set of cross-screen callbacks:
+The complete set of cross-screen callbacks. **Rewritten for Session 6:** `AppRoot`'s "response" column used to be a `destination = X` assignment; it is now a `NavController` call, per [`02-architecture.md`](02-architecture.md) §Navigation.
 
 | Screen | Parameter | Signature | Fired when | AppRoot's response |
 |---|---|---|---|---|
-| `SplashScreen` | `onTimeout` | `() -> Unit` | ExoPlayer reaches `STATE_ENDED` | `destination = AUTH` |
-| `AuthScreen` | `onLoginSuccess` | `() -> Unit` | Login button clicked | `destination = HOME` |
-| `HomeScreen` | `onNavigateToCanvas` | `(NotebookType) -> Unit` | A paper style is chosen in the modal | store type; `destination = NOTEBOOK_CANVAS` |
-| `NotebookCanvasScreen` | `onBack` | `() -> Unit` | Back arrow or system back | `destination = HOME` |
+| `SplashScreen` | `onTimeout` | `() -> Unit` | ExoPlayer reaches `STATE_ENDED` | `navController.navigate(Auth) { popUpTo(Splash) { inclusive = true } }` |
+| `AuthScreen` | `onLoginSuccess` | `() -> Unit` | Login button clicked | `navController.navigate(Library) { popUpTo(Auth) { inclusive = true } }` |
+| `HomeScreen` | `onNavigateToCanvas` | `(CanvasType) -> Unit` | A paper style is chosen in the modal | `navController.navigate(Editor(canvasType))` |
+| `CanvasScreen` | `onBack` | `() -> Unit` | Back arrow or system back | `navController.popBackStack()` |

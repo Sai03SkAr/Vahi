@@ -274,9 +274,9 @@ Order matters. Doing these in the wrong sequence means touching the same files t
 
 | # | Step | Why here |
 |---|---|---|
-| 1 | Upgrade the catalog; declare the transitive deps; fix the deprecated DSL | Do it before the tree gets bigger |
-| 2 | Add Hilt + `VahiApplication` | Everything after this wants injection |
-| 3 | Add Navigation; delete `AppDestination` / `AppRoot`'s `when` | Kills rotation loss immediately — highest problems-solved per unit of effort in the whole plan |
+| 1 | ✅ **Done (Session 6)** — Upgrade the catalog; declare the transitive deps; fix the deprecated DSL | Do it before the tree gets bigger |
+| 2 | Add Hilt + `VahiApplication` | Everything after this wants injection — still pending; nothing to inject yet, so deferred until a real repository exists (step 6) |
+| 3 | 🟡 **Partially done (Session 6)** — Add Navigation; delete `AppDestination` / `AppRoot`'s `when` | Kills the *navigation-desync* half of rotation loss immediately. **Not yet done:** `CanvasState` is still `remember`-scoped, so the *canvas-content* half of rotation loss (dropped ink) is unchanged — that needs step 4 and 6/7, not step 3 alone. See `09-project-status.md` bug #1. |
 | 4 | Introduce `core/model` + coordinate types | Nothing may be stored before this ([`17-data-spec.md`](17-data-spec.md) R1) |
 | 5 | `InkEngine` interface + `AndroidxInkEngine` | Behind the interface from the first line |
 | 6 | Room + DAOs + repositories + `InkFileStore` | Now safe: geometry has a coordinate space |

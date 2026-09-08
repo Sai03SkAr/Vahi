@@ -51,9 +51,7 @@ These are the nouns the codebase actually uses. Use them consistently in future 
 | Term | Type | Where | Meaning |
 |---|---|---|---|
 | **Notebook** | `data class Notebook` | `HomeScreen.kt` | A library item: `id`, `title`, `created`, `color`. Currently a display-only model with hardcoded instances. |
-| **NotebookType** | `enum` | `NotebookCanvasScreen.kt` | The paper style chosen at creation: `BLANK`, `RULED`, `GRID`. |
-| **CanvasType** | `enum` | `CanvasScaffold.kt` | The paper style as consumed by the canvas layer: `BLANK`, `RULED`, `GRID`. A near-duplicate of `NotebookType`, mapped 1:1. |
-| **AppDestination** | `enum` | `AppDestination.kt` | The four top-level screens: `SPLASH`, `AUTH`, `HOME`, `NOTEBOOK_CANVAS`. |
+| **CanvasType** | `@Serializable enum` | `CanvasScaffold.kt` | The paper style, chosen at creation and carried as a `navigation-compose` route argument: `BLANK`, `RULED`, `GRID`. Until Session 6 there was also a `NotebookType` — an identical enum in the now-deleted `NotebookCanvasScreen.kt`, mapped 1:1 to this one purely to keep the old hand-rolled navigation layer from sharing a type with the canvas layer. Real typed routes removed the reason for the duplicate. |
 | **Stroke** | `data class` | `drawing/Stroke.kt` | One continuous pen mark: `id`, `path`, `color`, `strokeWidth`. |
 | **CanvasState** | `class` | `drawing/CanvasState.kt` | Holds all strokes for one canvas session, plus the undo stack, active tool, colour and width. |
 | **ToolType** | `enum` | `drawing/CanvasState.kt` | `PEN`, `ERASER`. |
@@ -66,9 +64,10 @@ So that no one goes looking for it:
 
 - No database, no file I/O, no `SharedPreferences`, no network layer. Zero persistence of any kind.
 - No dependency injection framework (no Hilt/Koin).
-- No navigation library (no `androidx.navigation`); navigation is a hand-rolled `when` over an enum.
 - No ViewModels are instantiated anywhere — `BaseViewModel` exists but is unused.
 - No repositories, use cases, or domain models — those four packages contain only comment-only `package-info.kt` marker files.
-- No meaningful tests — just the two Android Studio template tests.
+- Only 7 unit tests beyond the Android Studio template — `CanvasStateTest.kt` (Session 6), covering the undo-clear fix. Nothing on the pointer/palm-rejection logic, the coordinate math (doesn't exist yet), or anything data-layer (doesn't exist yet).
+
+**No longer true, as of Session 6:** there *is* a navigation library now (`androidx.navigation:navigation-compose`, with type-safe `kotlinx.serialization` routes) — see [`02-architecture.md`](02-architecture.md) §Navigation. `CanvasState`, however, is still `remember`-scoped rather than ViewModel-hoisted, so rotating the device or navigating away from the canvas still drops every stroke.
 
 See [`09-project-status.md`](09-project-status.md) for the full audit.

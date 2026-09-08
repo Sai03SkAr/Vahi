@@ -44,11 +44,11 @@ The only Android component. `ComponentActivity` → `enableEdgeToEdge()` → `se
 
 ## `ui/screens/` — destinations
 
-### `AppDestination.kt` ✅ · 8 lines
-`enum class AppDestination { SPLASH, AUTH, HOME, NOTEBOOK_CANVAS }`
+### `AppDestination.kt` — 🗑️ deleted in Session 6
+Was `enum class AppDestination { SPLASH, AUTH, HOME, NOTEBOOK_CANVAS }`. Replaced by the typed `@Serializable` route objects/classes declared directly in `AppRoot.kt` — see below.
 
-### `AppRoot.kt` ✅ · 55 lines
-The navigation state machine. Owns `destination` and `selectedNotebookType`; a `when` renders exactly one destination and wires each screen's callback back to a state assignment.
+### `AppRoot.kt` ✅ **rewritten (Session 6)** · ~75 lines
+A `navigation-compose` `NavHost` with type-safe routes: `Splash`, `Auth`, `Library` (`data object`s) and `Editor(canvasType: CanvasType)` (`data class`). Each is a `composable<T> { }` block wiring one screen's callback to a `navController.navigate(...)`/`popBackStack()` call. Replaces the former hand-rolled `when` over `AppDestination` and the `selectedNotebookType` side channel (docs/09 bug #8, now impossible by construction — `Editor` cannot exist on the back stack without its `CanvasType`). Full detail: [`02-architecture.md`](02-architecture.md) §Navigation.
 
 ### `SplashScreen.kt` ✅ · 122 lines
 `SplashScreen(onTimeout)`. ExoPlayer plays `asset:///splash.mp4` muted and once, inside a `PlayerView` via `AndroidView` at 65 % screen width; a `Player.Listener` fires `onTimeout()` on `STATE_ENDED`; `DisposableEffect` releases the player. Background is an infinitely animating 4 s reversing off-white gradient. `@OptIn(UnstableApi::class)`.
@@ -83,11 +83,11 @@ Field values are held in state but never validated or read.
 | `CreateNotebookCard` | private | 260×200 dp "+" tile |
 | `NotebookCard` | private | 260×200 dp notebook tile with ⋮⋮ menu |
 
-### `NotebookCanvasScreen.kt` ✅ · 32 lines
-`enum class NotebookType { BLANK, RULED, GRID }` and a thin adapter mapping it 1:1 to `CanvasType` before delegating to `CanvasScreen`.
+### `NotebookCanvasScreen.kt` — 🗑️ deleted in Session 6
+Declared `enum class NotebookType { BLANK, RULED, GRID }` and a thin adapter mapping it 1:1 to `CanvasType` before delegating to `CanvasScreen`. Once `AppRoot` carried `CanvasType` directly as a typed route argument, the adapter and its duplicate enum had nothing left to do.
 
-### `CanvasScaffold.kt` ✅ · 129 lines
-`enum class CanvasType { BLANK, RULED, GRID }`; `CanvasScreen(canvasType, onBack)` — creates `remember { CanvasState() }`, registers an always-on `BackHandler`, and stacks paper (z 0) / `DrawingCanvas` (z 50) / `BackArrowButton` (z 100). Private `BackArrowButton` renders `←`-in-circle at TopStart for Grid, bare `↓` at BottomStart otherwise.
+### `CanvasScaffold.kt` ✅ · ~165 lines
+`@Serializable enum class CanvasType { BLANK, RULED, GRID }` (gained `@Serializable` in Session 6 — it's now carried directly as a `navigation-compose` route argument, see `AppRoot.kt`); `CanvasScreen(canvasType, onBack)` — creates `remember { CanvasState() }`, registers an always-on `BackHandler`, and stacks paper (z 0) / `DrawingCanvas` (z 50) / `DrawingToolbar` (z 90) / `BackArrowButton` (z 100) / `SnackbarHost` (z 110, added Session 6 — surfaces "Undo" after Clear). Private `BackArrowButton` renders `←`-in-circle at TopStart for Grid, bare `↓` at BottomStart otherwise.
 
 ### `BlankCanvas.kt` ✅ · 21 lines
 `BlankCanvasContent()` — a white full-size `Box`.
@@ -187,16 +187,16 @@ No test covers any Vahi code.
 
 ## Quick counts
 
-Re-counted in Session 5 (2026-09-08) via `find` and `wc -l`.
+Re-counted in Session 6 (2026-09-08) via `find` and `wc -l`, after `AppDestination.kt` and `NotebookCanvasScreen.kt` were deleted and `CanvasStateTest.kt` was added.
 
 | Metric | Value |
 |---|---|
-| Kotlin source files (main) | 25 (`NotebookScreen.kt` deleted, `DrawingToolbar.kt` added — net unchanged) |
-| Kotlin test files | 2 |
-| Lines of Kotlin (main + test) | 2,791 |
-| Largest file | `HomeScreen.kt`, 990 lines |
-| `@Composable` functions | 37 (verified via `grep -c`) |
-| Enums | 5 (`AppDestination`, `NotebookType`, `CanvasType`, `ToolType`, `WindowClass`) |
+| Kotlin source files (main) | 23 (`AppDestination.kt`, `NotebookCanvasScreen.kt` deleted this session; net change since Session 5: −2) |
+| Kotlin test files | 3 (`CanvasStateTest.kt` added this session) |
+| Lines of Kotlin (main + test) | 3,039 |
+| Largest file | `HomeScreen.kt`, 990 lines — still the strongest candidate for a split, deferred to ride along with its ViewModel (`VAHI-206`) |
+| `@Composable` functions | 36 (verified via `grep -c`) |
+| Enums | 3 (`CanvasType` — now `@Serializable` — `ToolType`, `WindowClass`; `AppDestination` and `NotebookType` deleted this session) |
 | Data classes | 3 (`Notebook`, `CardMenuAnchor`, `Stroke`) |
 | Non-composable classes | 2 (`CanvasState`, `BaseViewModel`) |
-| Files that are dead or empty | 5 (`BaseViewModel.kt`, 4 × `package-info.kt`) — `NotebookScreen.kt` deleted in Session 4 |
+| Files that are dead or empty | 4 × `package-info.kt` marker files. `BaseViewModel.kt` is written but still has no subclass — kept out of the "dead" count since it's a deliberate placeholder, not an oversight. |

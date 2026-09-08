@@ -8,16 +8,18 @@ A composable-by-composable reference for every screen. For how the screens conne
 
 **File:** `ui/screens/AppRoot.kt` · **Public API:** `@Composable fun AppRoot()`
 
-The single navigation host. Owns two pieces of state:
+✅ **Rewritten in Session 6** as a `navigation-compose` `NavHost` with type-safe routes. Owns a `NavController` (`rememberNavController()`), not raw `remember`ed state — the `NavController`'s own `SavedStateHandle` tracks the current destination and its arguments.
 
-| State | Type | Initial | Purpose |
+| Route | Type | Argument | Purpose |
 |---|---|---|---|
-| `destination` | `AppDestination` | `SPLASH` | Which screen is showing |
-| `selectedNotebookType` | `NotebookType?` | `null` | Argument channel for the canvas destination |
+| `Splash` | `@Serializable data object` | — | Start destination |
+| `Auth` | `@Serializable data object` | — | |
+| `Library` | `@Serializable data object` | — | Renders `HomeScreen` |
+| `Editor` | `@Serializable data class` | `canvasType: CanvasType` | Renders `CanvasScreen`; the argument travels with the route, so it can never be null while this destination is active — the old `selectedNotebookType?.let { }` desync (bug #8) is now impossible by construction |
 
-Renders one destination at a time via `when`. Takes no parameters and exposes no callbacks — it is the top of the tree under `VahiTheme`.
+Renders one destination at a time via `composable<T> { }` blocks in the `NavHost`. Takes no parameters and exposes no callbacks — it is the top of the tree under `VahiTheme`. Full detail and the code: [`02-architecture.md`](02-architecture.md) §Navigation.
 
-**Companion:** `ui/screens/AppDestination.kt` — `enum class AppDestination { SPLASH, AUTH, HOME, NOTEBOOK_CANVAS }`.
+**Deleted in Session 6:** `AppDestination.kt` (the routes above replace the enum) and `NotebookCanvasScreen.kt` (see the `CanvasScaffold` section below).
 
 ---
 
@@ -80,7 +82,7 @@ Reusable labelled input: a 14 sp medium `#333333` label above an `OutlinedTextFi
 
 ## HomeScreen
 
-**File:** `ui/screens/HomeScreen.kt` · **Public API:** `@Composable fun HomeScreen(onNavigateToCanvas: (NotebookType) -> Unit = {})`
+**File:** `ui/screens/HomeScreen.kt` · **Public API:** `@Composable fun HomeScreen(onNavigateToCanvas: (CanvasType) -> Unit = {})` — the parameter type changed from `NotebookType` to `CanvasType` in Session 6 when the duplicate-enum adapter was removed.
 
 ### Data classes declared here
 
@@ -136,25 +138,13 @@ Local helpers `openCardMenu` / `openSettings` / `openProfile` each null-out the 
 
 ---
 
-## NotebookCanvasScreen
+## NotebookCanvasScreen — 🗑️ deleted in Session 6
 
-**File:** `ui/screens/NotebookCanvasScreen.kt`
+**File:** `ui/screens/NotebookCanvasScreen.kt` — **no longer exists.**
 
-Declares `enum class NotebookType { BLANK, RULED, GRID }` and a thin adapter:
+It declared `enum class NotebookType { BLANK, RULED, GRID }` and a thin adapter mapping it 1:1 to `CanvasType` before delegating to `CanvasScreen`. Doc 09's "Code quality observations" flagged this as a duplicate-enum smell whose only purpose was letting the navigation layer and the canvas layer avoid sharing a type.
 
-```kotlin
-@Composable
-fun NotebookCanvasScreen(notebookType: NotebookType, onBack: () -> Unit) {
-    val canvasType = when (notebookType) {
-        NotebookType.BLANK -> CanvasType.BLANK
-        NotebookType.RULED -> CanvasType.RULED
-        NotebookType.GRID  -> CanvasType.GRID
-    }
-    CanvasScreen(canvasType = canvasType, onBack = onBack)
-}
-```
-
-`NotebookType` and `CanvasType` are identical enums mapped 1:1. The indirection exists so the navigation layer and the canvas layer don't share a type; whether that separation earns its keep is a judgment call — collapsing them would remove ~20 lines.
+Once `AppRoot` moved to typed `navigation-compose` routes (Session 6), that reason evaporated: the `Editor` route now carries a `canvasType: CanvasType` argument directly (`CanvasType` gained `@Serializable`), and `AppRoot` calls `CanvasScreen` straight from the `composable<Editor>` block. There was no longer anything for this file, or `NotebookType`, to do.
 
 ---
 

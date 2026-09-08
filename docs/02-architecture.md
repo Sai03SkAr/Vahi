@@ -7,13 +7,15 @@ Vahi is a **single-module, single-Activity, 100% Jetpack Compose** Android app.
 ```
 MainActivity (the only Activity, the only Android component in the manifest)
   └── VahiTheme            ← Material 3 theming
-        └── AppRoot        ← the entire navigation state machine
-              └── one of: SplashScreen | AuthScreen | HomeScreen | NotebookCanvasScreen
+        └── AppRoot        ← a navigation-compose NavHost (Session 6)
+              └── one of: SplashScreen | AuthScreen | HomeScreen | CanvasScreen
 ```
 
 There are no Fragments, no XML layouts, no Services, no BroadcastReceivers, no ContentProviders. `AndroidManifest.xml` declares exactly one `<activity>` and requests **no permissions at all**.
 
 ## Package layout
+
+> Corrected in Session 6 — this tree had drifted from the code since Session 4 (it still listed `NotebookScreen.kt`, deleted that session, and omitted `DrawingToolbar.kt`, added that session). Verified against `find app/src/main/java -name '*.kt'` as of this edit.
 
 ```
 com.vahi.app
@@ -21,7 +23,7 @@ com.vahi.app
 │
 ├── ui/
 │   ├── theme/                          Design system
-│   │   ├── Color.kt                    All colour constants
+│   │   ├── Color.kt                    Colour constants + the 5-swatch ink palette
 │   │   ├── Type.kt                     Full Material 3 type scale
 │   │   ├── Shape.kt                    Corner-radius scale
 │   │   └── Theme.kt                    VahiTheme — assembles the MaterialTheme
@@ -30,21 +32,19 @@ com.vahi.app
 │   │   ├── WindowInfo.kt               windowClass() responsive breakpoints
 │   │   └── drawing/                    The ink engine
 │   │       ├── Stroke.kt               Data model for one pen mark
-│   │       ├── CanvasState.kt          Stroke list, undo/redo, tool/colour/width
-│   │       └── DrawingCanvas.kt        Composable: pointer capture + rendering
+│   │       ├── CanvasState.kt          Strokes, undo/redo, tool/colour/width, undo-clear
+│   │       ├── DrawingCanvas.kt        Composable: pointer capture + rendering
+│   │       └── DrawingToolbar.kt       Floating tool rail (Session 4; fixed Session 6)
 │   │
 │   └── screens/                        One file (roughly) per destination
-│       ├── AppDestination.kt           enum of the four destinations
-│       ├── AppRoot.kt                  The navigation state machine
+│       ├── AppRoot.kt                  NavHost + typed routes (Session 6)
 │       ├── SplashScreen.kt             Video splash
 │       ├── AuthScreen.kt               Login / signup
 │       ├── HomeScreen.kt               Notebook library + all its overlays
-│       ├── NotebookCanvasScreen.kt     NotebookType enum + thin adapter to CanvasScreen
 │       ├── CanvasScaffold.kt           CanvasType enum + CanvasScreen (layered canvas host)
 │       ├── BlankCanvas.kt              Paper style: plain white
 │       ├── RuledCanvas.kt              Paper style: vertical rules
-│       ├── GridCanvas.kt               Paper style: scrollable dot grid
-│       └── NotebookScreen.kt           ⚠️ dead code — not referenced anywhere
+│       └── GridCanvas.kt               Paper style: scrollable dot grid
 │
 ├── viewmodel/
 │   └── BaseViewModel.kt                ⚠️ written but never instantiated
@@ -57,6 +57,8 @@ com.vahi.app
     ├── repository/package-info.kt      ⚠️ empty marker file
     └── datasource/package-info.kt      ⚠️ empty marker file
 ```
+
+**Deleted in Session 6:** `AppDestination.kt` (replaced by typed routes in `AppRoot.kt`) and `NotebookCanvasScreen.kt` (it declared a `NotebookType` enum whose only job was a 1:1 map to `CanvasType` before delegating to `CanvasScreen` — with real typed navigation there was no longer a reason for two identical enums or the adapter between them; `CanvasType` alone is now the route argument, see §Navigation below).
 
 ## Intended vs. actual architecture
 
@@ -86,14 +88,14 @@ Composable  →  remember { ... }  →  local in-memory state  →  discarded on
 
 ## State management
 
-All state is Compose-local. There are three distinct patterns in play:
+There are three distinct patterns in play. Two are still Compose-local; navigation position is not, as of Session 6.
 
-### 1. Hoisted screen state in `AppRoot`
+### 1. Navigation position, owned by `NavController` (Session 6)
 ```kotlin
-var destination by remember { mutableStateOf(AppDestination.SPLASH) }
-var selectedNotebookType by remember { mutableStateOf<NotebookType?>(null) }
+val navController = rememberNavController()
+NavHost(navController, startDestination = Splash) { /* … */ }
 ```
-Two variables define the entire app's position. Children never mutate them directly — they invoke callbacks (`onTimeout`, `onLoginSuccess`, `onNavigateToCanvas`, `onBack`) and `AppRoot` reassigns.
+`AppRoot` no longer holds `destination`/`selectedNotebookType` as `remember`ed variables. `rememberNavController()` holds the back stack and, via its built-in `SavedStateHandle`, restores which destination is current — and any typed arguments it carries — across process death, not merely recomposition. Children never mutate navigation state directly; they invoke callbacks (`onTimeout`, `onLoginSuccess`, `onNavigateToCanvas`, `onBack`) and `AppRoot` calls `navController.navigate(...)` / `popBackStack()`. See **Navigation** below.
 
 ### 2. Screen-local UI state
 `HomeScreen` owns six `remember { mutableStateOf(...) }` values for its overlays (modal open, which dropdown is open, two anchor positions). It also defines local helper functions — `openCardMenu`, `openSettings`, `openProfile`, `closeDropdowns`, `openCreateNotebook` — that enforce mutual exclusivity: opening any one dropdown closes the other two.
@@ -109,39 +111,52 @@ var activeTool: ToolType by mutableStateOf(ToolType.PEN)
 Created with `remember { CanvasState() }` inside `CanvasScreen`. This is the idiomatic Compose "state holder" pattern — and it's the right home for the ink model — but because it's `remember` and not `rememberSaveable`/ViewModel-scoped, **every stroke is destroyed on configuration change or on navigating away.**
 
 ### The unidirectional data flow convention
-The codebase is consistent about this: state flows *down* as parameters, events flow *up* as lambdas. Every screen composable takes callbacks (`onBack: () -> Unit`, `onNavigateToCanvas: (NotebookType) -> Unit`) rather than reaching for a shared object. That convention is worth preserving as ViewModels get introduced.
+The codebase is consistent about this: state flows *down* as parameters, events flow *up* as lambdas. Every screen composable takes callbacks (`onBack: () -> Unit`, `onNavigateToCanvas: (CanvasType) -> Unit`) rather than reaching for a shared object. That convention held up well through the Session 6 navigation rewrite and is worth preserving as ViewModels get introduced.
 
 ## Navigation
 
-There is **no navigation library**. `AppRoot.kt` is a `when` over `AppDestination`:
+**As of Session 6, this is `androidx.navigation:navigation-compose` with type-safe (`kotlinx.serialization`-backed) routes.** `AppRoot.kt` is a `NavHost`:
 
 ```kotlin
-when (destination) {
-    AppDestination.SPLASH -> SplashScreen(onTimeout = { destination = AppDestination.AUTH })
-    AppDestination.AUTH   -> AuthScreen(onLoginSuccess = { destination = AppDestination.HOME })
-    AppDestination.HOME   -> HomeScreen(onNavigateToCanvas = { type ->
-                                 selectedNotebookType = type
-                                 destination = AppDestination.NOTEBOOK_CANVAS
-                             })
-    AppDestination.NOTEBOOK_CANVAS -> selectedNotebookType?.let { type ->
-                                 NotebookCanvasScreen(notebookType = type,
-                                                      onBack = { destination = AppDestination.HOME })
-                             }
+@Serializable private data object Splash
+@Serializable private data object Auth
+@Serializable private data object Library
+@Serializable private data class Editor(val canvasType: CanvasType)
+
+NavHost(navController, startDestination = Splash) {
+    composable<Splash> { SplashScreen(onTimeout = {
+        navController.navigate(Auth) { popUpTo(Splash) { inclusive = true } }
+    }) }
+    composable<Auth> { AuthScreen(onLoginSuccess = {
+        navController.navigate(Library) { popUpTo(Auth) { inclusive = true } }
+    }) }
+    composable<Library> { HomeScreen(onNavigateToCanvas = { canvasType ->
+        navController.navigate(Editor(canvasType))
+    }) }
+    composable<Editor> { backStackEntry ->
+        val editor: Editor = backStackEntry.toRoute()
+        CanvasScreen(canvasType = editor.canvasType, onBack = { navController.popBackStack() })
+    }
 }
 ```
 
-Consequences of this design:
+What this replaced, and why it matters:
 
-- **No back stack.** Back behaviour is hand-implemented per screen with `BackHandler`.
-- **No argument passing mechanism.** `selectedNotebookType` is a manually-managed side channel — a second piece of navigation state that must be kept in sync with `destination`. If it's ever `null` while `destination == NOTEBOOK_CANVAS`, the `?.let` renders nothing and the user sees a blank screen.
-- **No deep links, no state restoration.** Rotating the device on the Canvas screen returns you to Splash and drops all ink.
-- **No transition animations** between destinations.
+| Before (through Session 5) | Now |
+|---|---|
+| `AppDestination` enum + hand-rolled `when` | Typed `@Serializable` route objects/classes, one `composable<T>` block each |
+| `selectedNotebookType` — a second piece of state manually kept in sync with `destination`; if it was ever `null` while `destination == NOTEBOOK_CANVAS`, the screen silently rendered nothing (was bug #8) | **Eliminated by construction.** `Editor` cannot exist on the back stack without its `canvasType` — there is no `null` state to desynchronise into. |
+| `NotebookCanvasScreen.kt` — an adapter whose only job was mapping `NotebookType` → `CanvasType` 1:1 | Deleted. `CanvasType` alone is now `@Serializable` and carried directly as the `Editor` route's argument. |
+| No back stack; back behaviour hand-implemented per screen | A real back stack via `NavHost`/`NavController` |
+| No state restoration across process death | `rememberNavController()`'s `SavedStateHandle` integration restores the current destination and its arguments — not full screen state (see the `CanvasState` caveat below), but the navigation *position* survives a process kill, which it did not before |
 
-The two `BackHandler`s that exist:
-- `HomeScreen` — enabled only while an overlay is open; closes the modal first, then dropdowns. When nothing is open there is no handler, so back exits the app.
-- `CanvasScreen` — always enabled; calls `onBack()`, returning to Home.
+**What this does *not* yet fix:** `CanvasState` is still created with `remember { CanvasState() }` inside `CanvasScreen` (`CanvasScaffold.kt`), not hoisted into a ViewModel. Rotating the device or navigating away and back still drops every stroke — bug #1 is unchanged. Fixing that is `VAHI-110` (coordinate model) and `VAHI-301` (persistence); see [`18-architecture-target.md`](18-architecture-target.md) §4 for why the editor's state deliberately does **not** move into a plain `StateFlow`-backed `UiState` the way other screens will.
 
-Splash and Auth register no handler, so back exits the app from either.
+Splash and Auth pop themselves off the back stack on the way through (`popUpTo(...) { inclusive = true }`), so pressing back from the library still exits the app — matching the pre-Session-6 behaviour, just now for the honest reason (nothing left on the stack) rather than by accident.
+
+The two `BackHandler`s that exist are unchanged by this rewrite:
+- `HomeScreen` — enabled only while an overlay is open; closes the modal first, then dropdowns. When nothing is open there is no handler, so system back falls through to the `NavController`, which exits the app (Library is the base of the stack).
+- `CanvasScreen` — always enabled; calls `onBack()`, which now calls `navController.popBackStack()`, returning to Home.
 
 ## The canvas composition model
 

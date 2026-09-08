@@ -2,7 +2,7 @@
 
 An honest audit as of the current working tree (one commit, `89bafd3 "update"`, plus substantial uncommitted work).
 
-> **Last re-audited: Session 5, 2026-09-08.** That pass read the source again after Session 4's changes and found **eight further defects (#13–#20)**, four of them in code that Session 4 shipped. Bug #12 was verified as fixed. The reframe in [`11-forward-plan.md`](11-forward-plan.md) Part 3 still holds — most of the list remains symptoms of missing foundations — but **#13 and #14 are new, real, and reachable by a user today.**
+> **Last updated: Session 6, 2026-09-08 (implementation).** Session 5 (planning, same day) re-audited the source after Session 4's changes and found **eight further defects (#13–#20)**, four of them in code that Session 4 shipped, and verified bug #12 fixed. Session 6 then implemented Track A follow-up work: bugs **#13, #15, #16, #18, #19 fixed**, and bug **#8 fixed by construction** via a real navigation-compose rewrite (`VAHI-001`–`VAHI-003`, `VAHI-005`, `VAHI-201` — see `PROJECT-LOG.md`). Bug **#1 is half-fixed** — navigation position now survives rotation, canvas *content* still does not. The reframe in [`11-forward-plan.md`](11-forward-plan.md) Part 3 still holds — most of the remaining list is symptoms of missing foundations, chiefly **#14** (palm rejection — still critical, still unfixed) and persistence.
 
 ---
 
@@ -13,7 +13,7 @@ Vahi is a **UI prototype with a working ink engine and no data layer**. You can 
 | Area | State |
 |---|---|
 | Visual design / layout | **Substantially complete** for tablet |
-| Navigation | **Works**, but hand-rolled with no back stack |
+| Navigation | **Works.** Rewritten onto `navigation-compose` with a real back stack and type-safe routes (Session 6) |
 | Splash | **Works**, now with error + timeout handling (Session 4) |
 | Authentication | **Cosmetic only** — no validation, no backend |
 | Notebook library | **Cosmetic only** — two hardcoded notebooks |
@@ -97,8 +97,13 @@ Only the `// Right panel (AI / research later)` comment in dead code.
 
 Ordered by impact.
 
-### 1. Rotation destroys everything
-No `configChanges`, no `rememberSaveable`, no ViewModel. Rotating the device recreates the Activity, resets `destination` to `SPLASH`, and drops every stroke. **Severity: high** — the app is unusable as a note-taking tool until fixed. Also affects multi-window resize and night-mode toggles.
+### 1. 🟡 PARTIALLY FIXED (Session 6) — Rotation still destroys ink
+
+**Original bug:** no `configChanges`, no `rememberSaveable`, no ViewModel, no navigation library. Rotating the device recreated the Activity, reset `destination` to `SPLASH`, and dropped every stroke.
+
+**What Session 6's navigation rewrite fixed:** `AppRoot` no longer holds `destination` as a bare `remember`ed variable — it's `navigation-compose`'s `NavController`, whose `SavedStateHandle` survives process death. **The app should no longer bounce back to Splash on rotation.** Not yet verified on a device (`VAHI-008`).
+
+**What is still broken:** `CanvasState` is still created with `remember { CanvasState() }` inside `CanvasScreen` (`CanvasScaffold.kt`), not hoisted into a ViewModel. **Rotating the device on the canvas still drops every stroke** — the navigation *position* now survives, but the *canvas content* does not. This was always the harder half of the bug, and it needs the coordinate model (`VAHI-110`) before persistence can fix it properly, or a `SavedStateHandle`-backed ViewModel as an interim step. **Severity: still high** — the app remains unusable as a note-taking tool until this half lands too.
 
 ### 2. Grid canvas cannot scroll
 `GridCanvasContent` applies `verticalScroll` + `horizontalScroll` to a 4000 dp surface, but `DrawingCanvas` sits above it at `zIndex(50f)` and consumes pointer events while pressed. The scroll modifiers never fire, so 96 % of the grid is unreachable. **Severity: high.** Fix requires an explicit pan/zoom gesture mode (a hand tool, two-finger pan, or a transform matrix shared between the paper and ink layers).
@@ -130,11 +135,13 @@ Covered above. Decision D2 settled this as tablet-only for v1, so the "dead end"
 
 **Fix applied:** `AuthFallbackLayout` now shows an honest "Vahi works best on a tablet" message instead of the debug string. **It still provides no functional path forward on phones**, by design (D2) — building real Compact layouts is deferred until there's a reason.
 
-### 8. Blank screen if navigation state desynchronises
+### 8. ✅ FIXED (Session 6) — Blank screen if navigation state desynchronised
 ```kotlin
 AppDestination.NOTEBOOK_CANVAS -> selectedNotebookType?.let { ... }
 ```
-If `destination` is `NOTEBOOK_CANVAS` while `selectedNotebookType` is `null`, nothing renders and the only escape is system back. Unreachable through current UI, but it's a class of bug that a real navigation library eliminates by construction. **Severity: low.**
+If `destination` was `NOTEBOOK_CANVAS` while `selectedNotebookType` was `null`, nothing rendered and the only escape was system back. Was unreachable through the UI at the time, but was a real class of bug.
+
+**Fix applied:** `AppRoot.kt` rewritten onto `navigation-compose` with type-safe routes ([`02-architecture.md`](02-architecture.md) §Navigation, `VAHI-201`). The `Editor` route is `@Serializable data class Editor(val canvasType: CanvasType)` — the argument travels *with* the route on the back stack, so there is no separate side-channel variable that could desynchronise, and no `null` state for this bug to occupy. **Fixed by construction, not by validation** — the failure mode doesn't have anywhere to happen.
 
 ### 9. ✅ FIXED (Session 4) — Edge-to-edge without insets
 `enableEdgeToEdge()` is called but no composable consumed window insets. Content could render under the status bar and gesture navigation bar — most visibly the Blank/Ruled back arrow at `BottomStart`.
@@ -261,17 +268,17 @@ Not bugs, but things a reviewer would flag.
 
 | Observation | Detail |
 |---|---|
-| **`HomeScreen.kt` is 982 lines** | It holds 15 composables plus two data classes. The overlays (`CardContextMenu`, `SettingsOverlay`, `ProfileOverlay`, `CreateNotebookOverlay`) are self-contained and belong in their own files or a `components/` subpackage. |
+| **`HomeScreen.kt` is 990 lines** | It holds 15 composables plus two data classes. The overlays (`CardContextMenu`, `SettingsOverlay`, `ProfileOverlay`, `CreateNotebookOverlay`) are self-contained and belong in their own files or a `components/` subpackage. |
 | **Three near-identical menu composables** | `CardContextMenu`, `SettingsOverlay`, and `ProfileOverlay` differ only in width and item list. One parameterised `VahiDropdownMenu(width, items, onItemClick)` would replace all three. |
-| **Hardcoded colours everywhere** | Directly contradicts `Color.kt`'s own KDoc: *"No hardcoded colors should be used in screens."* Dozens of inline `Color(0xFF…)` literals across five files. **Session 4 fixed the two that failed WCAG AA contrast** (`#999999`/`#AAAAAA` → the new `VahiTextPlaceholder` token, `#767676`) but did not do a general migration — that's intentionally deferred to ride along with the Track C ViewModel refactor per `13-visual-design-system.md` §9. |
+| **Hardcoded colours in most screens** | Directly contradicts `Color.kt`'s own KDoc: *"No hardcoded colors should be used in screens."* Dozens of inline `Color(0xFF…)` literals remain across `HomeScreen.kt`, `AuthScreen.kt`, `CanvasScaffold.kt`'s `BackArrowButton`, and the paper-style screens. **Fixed so far:** the two WCAG-AA contrast failures (Session 4, `VahiTextPlaceholder`) and all of `DrawingToolbar.kt` (Session 6, part of `VAHI-003`). A general migration to semantic tokens is intentionally deferred to ride along with the ViewModel refactor per `13-visual-design-system.md` §9. |
 | **Typography scale mostly bypassed** | Screens pass raw `fontSize = 14.sp` instead of `style = MaterialTheme.typography.*`. Only `AuthScreen` uses named styles. |
-| **Duplicate enums** | `NotebookType` and `CanvasType` are identical and mapped 1:1. |
+| ~~**Duplicate enums**~~ | ✅ **Fixed (Session 6).** `NotebookType` and `CanvasType` were identical, mapped 1:1. `NotebookType` and its adapter file (`NotebookCanvasScreen.kt`) are deleted; `CanvasType` alone survives, now `@Serializable` for use as a navigation route argument. |
 | **String-literal dispatch** | The create-notebook modal routes on `"Blank"` / `"Ruled"` / `"Grid"` / `"Import PDF"` string comparisons. |
 | **Emoji and text glyphs as icons** | 🐦 🔍 ⊞ ≡ ⋮⋮ 🧮 💻 📓 □ ↓ ← G. Render inconsistently across devices and fonts, and are inaccessible to screen readers. |
 | **No content descriptions** | Almost every clickable element passes `contentDescription = null` or is a bare `Text` in a `clickable` `Box`. Accessibility is effectively zero. |
 | **No string extraction** | All UI copy is hardcoded Kotlin. No localisation is possible. |
 | **No `@Preview` functions** | Despite `ui-tooling-preview` being a declared dependency, not one preview exists. |
-| **Dead code left in place** | ✅ Deleted in Session 4: `NotebookScreen.kt`, `ic_launcher_foreground.xml`, `res/values/colors.xml`, four unused colour constants (`VahiCardMauve`, `VahiGoogleButtonBg`, `VahiAccentBlue`, `VahiAccentTeal`). |
+| **Dead code left in place** | ✅ Deleted in Session 4: `NotebookScreen.kt`, `ic_launcher_foreground.xml`, `res/values/colors.xml`, four unused colour constants (`VahiCardMauve`, `VahiGoogleButtonBg`, `VahiAccentBlue`, `VahiAccentTeal`). **Session 6 also deleted:** `AppDestination.kt` (replaced by typed nav routes) and `NotebookCanvasScreen.kt` (its `NotebookType` enum was an identical duplicate of `CanvasType`, mapped 1:1 purely to feed the old hand-rolled navigation layer). |
 | **Deprecated Gradle DSL** | `kotlinOptions { jvmTarget = "11" }` should be `compilerOptions { jvmTarget = JvmTarget.JVM_11 }`. |
 | **Stale dependency versions** | Compose BOM 2024.09.00 and AndroidX libs from 2023 against `compileSdk 36`. |
 | **Release builds unminified** | `isMinifyEnabled = false`, no resource shrinking, no signing config. `proguard-rules.pro` is the untouched template. See [`20-release-plan.md`](20-release-plan.md). |
@@ -291,7 +298,7 @@ If you're picking this project up cold, verify these yourself before planning an
 1. **Rest your palm on the screen and write with a stylus.** The palm draws; the stylus does not. (Bug #14 — the most important thing in this document, and still unfixed.)
 2. **Start a stroke and press back without lifting.** The stroke is discarded. (Bug #17, still unfixed.)
 3. Draw on a canvas, press back, re-enter — the ink is gone. (Bug: no persistence.)
-4. Rotate the device on any screen — you land back on the splash. (Bug #1.)
+4. Rotate the device **on the canvas screen** — the ink is gone, even though (as of Session 6) you should land back where you were rather than on Splash. (Bug #1, half-fixed — see its entry above.)
 5. Try to scroll the Grid canvas. You can't. (Bug #2.)
 6. ~~Tap the delete icon on the tool rail — everything is gone and undo can't bring it back.~~ **Fixed in Session 6** (bug #13) — Clear now shows an "Undo" snackbar. Worth re-checking that the snackbar actually restores the page correctly.
 7. ~~Turn on TalkBack and try to use the tool rail — almost nothing is announced.~~ **Fixed in Session 6** (bug #16) — every control now has a `contentDescription`. Worth confirming TalkBack actually reads them as expected.
