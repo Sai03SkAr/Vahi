@@ -52,25 +52,24 @@ VAHI-001 commit tree
 
 *Start here. Everything survives every downstream decision, so there is zero rework risk.*
 
-### VAHI-001 · Commit the working tree ⬜ XS
-**Why:** the repo has **one commit** with hundreds of uncommitted lines on top — the entire drawing engine, the toolbar, all Session 4 fixes and this documentation set. A single mistaken `git checkout` costs all of it.
-**Do:** commit in logical chunks — drawing engine · launcher icon · screen rewrites · Session 4 toolbar and fixes · docs. Add `*.jks`, `keystore.properties` to `.gitignore`.
-**Accept:** `git status` clean; each commit builds; history is readable.
-**Deps:** none. **Blocks:** everything.
+### VAHI-001 · Commit the working tree ✅ Done (Session 6) · XS
+**Why:** the repo had **one commit** with hundreds of uncommitted lines on top — the entire drawing engine, the toolbar, all Session 4 fixes and this documentation set. A single mistaken `git checkout` cost all of it.
+**Done:** committed in six logical chunks — Media3 dependency · launcher icons · ink engine + canvas host · Session 4 UX/bug fixes · IDE metadata · full documentation set. Each commit builds; history is readable.
+**Deps:** none. **Blocked:** everything (now unblocked).
 
-### VAHI-002 · Upgrade the dependency baseline ⬜ M
-**Why:** Compose BOM `2024.09.00` and 2023-era AndroidX against `compileSdk 36`. Adding Room, Hilt, Navigation and Ink onto that baseline will produce confusing incompatibilities. Upgrade **before** adding, not after (R10).
-**Do:** bump the catalog; migrate `kotlinOptions { jvmTarget = "11" }` → `compilerOptions { jvmTarget = JvmTarget.JVM_11 }`; declare `lifecycle-viewmodel-compose` and `kotlinx-coroutines-android` explicitly — `BaseViewModel` currently compiles only through transitive dependencies.
-**Accept:** `assembleDebug` and `testDebugUnitTest` pass; app runs; no new warnings.
-**Deps:** VAHI-001.
+### VAHI-002 · Upgrade the dependency baseline ✅ Done (Session 6) · M
+**Why:** Compose BOM `2024.09.00` and 2023-era AndroidX against `compileSdk 36`. Adding Room, Hilt, Navigation and Ink onto that baseline would produce confusing incompatibilities. Upgrade **before** adding, not after (R10).
+**Done:** Kotlin 2.0.21→2.1.20, core-ktx 1.10.1→1.15.0, lifecycle 2.6.1→2.8.7, activity-compose 1.8.0→1.9.3, Compose BOM 2024.09.00→2025.01.01. AGP stays 8.13.2 deliberately — AGP 9 is a separate breaking-change migration, not required to unblock Room/Hilt/Navigation, and not something to bundle into a routine catalog refresh without on-device verification available. Migrated `kotlinOptions` → `compilerOptions`. Declared `lifecycle-viewmodel-compose`, `lifecycle-runtime-compose`, `kotlinx-coroutines-android` explicitly (previously only transitive). Added `kotlinx-coroutines-test` and Robolectric for JVM-testable Compose/graphics code.
+**Accept:** `assembleDebug` and `testDebugUnitTest` pass — verified. **Deps:** VAHI-001.
 
-### VAHI-003 · Fix the tool rail's shipped defects ⬜ S
-**Why:** three real problems in code that already ships to the canvas — see [`09-project-status.md`](09-project-status.md) #13, #15, #16.
-**Do:**
-- **Clear is unrecoverable.** `clearAll()` empties strokes *and* the redo stack, from a 48 dp button directly below Undo. Make it undoable, or at minimum snackbar-with-undo, before anyone uses it.
-- **Touch targets are 40 dp, not 48.** `.size(48.dp).padding(4.dp).clickable` shrinks the clickable region. Reorder the modifiers.
-- **No `contentDescription`** on any rail control; **hardcoded colours** throughout, so it is invisible on dark paper.
-**Accept:** clear is reversible; every target measures ≥ 48 dp; TalkBack announces every control; no `Color(0xFF…)` literals in the file.
+### VAHI-003 · Fix the tool rail's shipped defects ✅ Done (Session 6) · S
+**Why:** four real problems in code that already ships to the canvas — see [`09-project-status.md`](09-project-status.md) #13, #15, #16, #18.
+**Done:**
+- **Clear was unrecoverable (#13, the most severe fix in this pass).** `CanvasState.clearAll()` now snapshots the page first; `undoClear()` restores it. `CanvasScaffold.kt` shows a Snackbar with an "Undo" action. The snapshot is invalidated by any further mutation so stale ink can never silently overwrite newer work. 6 unit tests (Robolectric — `Stroke.path` is `android.graphics.Path`-backed, so a plain JVM test can't construct one; this is itself a useful finding, corrected in `19-quality-bar.md`'s test-target description).
+- **Touch targets were 40 dp, not 48 (#15).** Removed the inner `.padding(4.dp)` that shrank `ToolbarGlyphToggle`'s clickable region.
+- **No `contentDescription`; hardcoded colours (#16).** Every control now has a `contentDescription`; toggle-style controls use `Modifier.selectable(role = Role.RadioButton)` so TalkBack announces selection state. UI-chrome colours now reference `MaterialTheme.colorScheme.*`. The 5-swatch ink palette moved to named constants in `Color.kt` (deliberately theme-invariant — it's user-selected pigment, not chrome).
+- **Width preview mixed px and dp (#18).** A `WidthPreset` type now separates the actual draw width (px) from an independently-chosen preview size (dp).
+**Accept:** `grep -c '0x[0-9A-Fa-f]\{6,8\}' DrawingToolbar.kt` → 0; every control `.size(48.dp)` → `.selectable`/`.clickable` with nothing between; `testDebugUnitTest` and `assembleDebug` both pass. **Not yet verified on a real touchscreen or with TalkBack** — that needs a device (`VAHI-008`).
 **Deps:** VAHI-001.
 
 ### VAHI-004 · Reconcile the docs with the Figma design ⬜ S ⏸️
@@ -79,9 +78,9 @@ VAHI-001 commit tree
 **Do:** rewrite doc 13 Parts 3–6 against the real values; annotate the doc 15 wireframes with the frames they correspond to; note anything the Figma does not cover (states, dark mode, split-screen, 200 % scale, Hindi expansion) as spec-owned.
 **Accept:** no contradiction between Figma and doc 13; doc 15 wireframes cross-referenced.
 
-### VAHI-005 · Configure backup rules explicitly ⬜ XS
-**Why:** [D13](22-decisions.md#d13--android-auto-backup-is-disabled-for-notebook-data). `allowBackup="true"` with template rules where every rule is commented out — the moment Room lands, the whole database silently becomes Auto-Backup eligible, with a 25 MB silent-failure quota and a restore that can overwrite newer notes with older.
-**Do:** exclude `databases/vahi.db` and `files/notebooks/` in both `backup_rules.xml` and `data_extraction_rules.xml`.
+### VAHI-005 · Configure backup rules explicitly ✅ Done (Session 6) · XS
+**Why:** [D13](22-decisions.md#d13--android-auto-backup-is-disabled-for-notebook-data). `allowBackup="true"` with template rules where every rule was commented out — the moment Room lands, the whole database would silently become Auto-Backup eligible, with a 25 MB silent-failure quota and a restore that can overwrite newer notes with older.
+**Done:** excluded `database/vahi.db` and `file/notebooks/` in both `backup_rules.xml` (API 26-30) and `data_extraction_rules.xml`'s `<cloud-backup>` and `<device-transfer>` (API 31+). Verified: `assembleDebug` passes (valid XML, resources merge cleanly).
 **Accept:** rules explicit; verified with `bmgr` that notebook data is not backed up.
 **Deps:** none. **Do before** VAHI-301.
 

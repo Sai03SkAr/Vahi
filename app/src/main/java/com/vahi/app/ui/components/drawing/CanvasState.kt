@@ -36,6 +36,14 @@ class CanvasState {
     var currentStroke: Stroke? by mutableStateOf(null)
         private set
     
+    /**
+     * Snapshot of [_strokes] taken immediately before the most recent [clearAll], so a
+     * mis-tap on Clear can be undone once. Dropped the moment any other mutating action
+     * happens (a new stroke, an erase, another clear) — restoring an older snapshot after
+     * that would silently discard whatever the user drew in between.
+     */
+    private var lastClearedSnapshot: List<Stroke>? = null
+
     /** Currently selected tool */
     var activeTool: ToolType by mutableStateOf(ToolType.PEN)
     
@@ -79,6 +87,8 @@ class CanvasState {
             _strokes.add(stroke)
             // Clear redo stack when new stroke is added
             _undoneStrokes.clear()
+            // A clear can no longer be undone once new ink exists on top of it.
+            lastClearedSnapshot = null
         }
         currentStroke = null
     }
@@ -106,6 +116,10 @@ class CanvasState {
             strokeIntersectsRect(stroke, hitRect)
         }
         
+        if (strokesToRemove.isNotEmpty()) {
+            // A clear can no longer be undone once the page has changed again.
+            lastClearedSnapshot = null
+        }
         strokesToRemove.forEach { stroke ->
             _strokes.remove(stroke)
             _undoneStrokes.add(stroke)
@@ -153,10 +167,34 @@ class CanvasState {
     
     /**
      * Clears all strokes from the canvas.
+     *
+     * Takes a snapshot first so [undoClear] can restore the page. Previously this emptied
+     * the redo stack too, making a mis-tap on the toolbar's Clear button — a 48dp target
+     * sitting directly below Undo/Redo — unrecoverable data loss (docs/09-project-status.md
+     * bug #13). No-op if the page is already empty, so an empty clear can't overwrite a
+     * still-restorable earlier snapshot.
      */
     fun clearAll() {
+        if (_strokes.isEmpty()) return
+        lastClearedSnapshot = _strokes.toList()
         _strokes.clear()
         _undoneStrokes.clear()
         currentStroke = null
+    }
+
+    /** Whether the most recent [clearAll] can still be undone. */
+    fun canUndoClear(): Boolean = lastClearedSnapshot != null
+
+    /**
+     * Restores the page to how it was immediately before the most recent [clearAll].
+     * Only available until another mutating action happens — see [lastClearedSnapshot].
+     */
+    fun undoClear() {
+        lastClearedSnapshot?.let { snapshot ->
+            _strokes.clear()
+            _strokes.addAll(snapshot)
+            _undoneStrokes.clear()
+            lastClearedSnapshot = null
+        }
     }
 }

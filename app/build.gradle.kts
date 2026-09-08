@@ -69,6 +69,12 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Stroke's geometry is backed by androidx.compose.ui.graphics.Path, which on
+    // Android delegates to android.graphics.Path — a real Android framework type
+    // that plain JVM unit tests can't construct. Robolectric shadows it so
+    // CanvasState (docs/19-quality-bar.md's highest-value test target) is testable
+    // without an emulator.
+    testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

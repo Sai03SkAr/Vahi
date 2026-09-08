@@ -19,7 +19,7 @@ Vahi is a **UI prototype with a working ink engine and no data layer**. You can 
 | Notebook library | **Cosmetic only** — two hardcoded notebooks |
 | Canvas + paper styles | **Works** |
 | Freehand drawing (pen) | **Works** |
-| Eraser / undo / redo / colour / width | **Works — toolbar added (Session 4)**, still not on-device verified. Session 5 found four defects in it: #13, #15, #16, #18 |
+| Eraser / undo / redo / colour / width | **Works — toolbar added (Session 4).** Session 5 found four defects (#13, #15, #16, #18); all four fixed in Session 6. Still not on-device verified. |
 | Palm rejection / multi-touch | **Actively wrong** — see bug #14. The palm draws instead of the stylus |
 | Persistence | **Does not exist** |
 | Networking / backend | **Does not exist** |
@@ -158,7 +158,7 @@ A 4000 dp square canvas at 24 px dot spacing means tens of thousands of `drawCir
 
 Four of these (#13, #15, #16, #18) are in `DrawingToolbar.kt` — code Session 4 shipped without on-device verification. That is not a criticism of the work; it is exactly what "compiles but was never run" produces, and it is why [`19-quality-bar.md`](19-quality-bar.md) §5 makes "run it on a real device" part of the definition of done.
 
-### 13. 🔴 Clear canvas is unrecoverable, and it is one tap away
+### 13. ✅ FIXED (Session 6) — Clear canvas was unrecoverable, and it was one tap away
 
 ```kotlin
 fun clearAll() {
@@ -168,11 +168,11 @@ fun clearAll() {
 }
 ```
 
-`DrawingToolbar` wires this to a 48 dp delete button sitting **directly below Undo and Redo**. One mis-tap destroys every stroke on the page with **no way back** — undo cannot recover it because the undo stack is cleared in the same call.
+`DrawingToolbar` wired this to a 48 dp delete button sitting **directly below Undo and Redo**. One mis-tap destroyed every stroke on the page with **no way back** — undo could not recover it because the undo stack was cleared in the same call.
 
-**Severity: high.** This is a data-loss bug in shipped code, in a note-taking app, reachable by a user in one tap. It is the most serious defect currently in the tree.
+**Fix applied:** `CanvasState.clearAll()` now snapshots the page before clearing; a new `undoClear()` restores it. The snapshot is invalidated the moment any other mutating action happens (a new stroke, an erase, a second clear) so restoring stale ink can never silently discard newer work. `CanvasScaffold.kt` wires this to a Material3 `Snackbar` with an "Undo" action, shown whenever Clear is tapped. Covered by 6 unit tests in `CanvasStateTest.kt` (Robolectric — see the note in that file on why a plain JVM test can't construct a `Stroke`). Verified: `:app:testDebugUnitTest` and `:app:assembleDebug` both `BUILD SUCCESSFUL`.
 
-**Fix:** make clear an undoable command (`ClearPage` in [`16-canvas-spec.md`](16-canvas-spec.md) §9) — or, at minimum, snackbar-with-undo. Tracked as `VAHI-003`.
+**Still open:** this is a minimal, targeted fix (one level of undo, scoped to Clear only) — not the full command-history model. The proper long-term fix remains `ClearPage` as a first-class entry in a real undo/redo command stack ([`16-canvas-spec.md`](16-canvas-spec.md) §9), tracked as `VAHI-120`.
 
 ### 14. 🔴 A resting palm draws, and the stylus does not
 
@@ -190,23 +190,38 @@ val change = event.changes.firstOrNull() ?: continue
 
 **Fix:** the pointer arbitration state machine and tiered palm rejection in [`16-canvas-spec.md`](16-canvas-spec.md) §4. Tracked as `VAHI-112` / `VAHI-113`.
 
-### 15. Toolbar touch targets are 40 dp, not 48 dp
+### 15. ✅ FIXED (Session 6) — Toolbar touch targets were 40 dp, not 48 dp
 
 ```kotlin
 Modifier.size(48.dp).padding(4.dp).clip(CircleShape).background(…).clickable(…)
 ```
 
-The `padding` is applied **inside** the 48 dp box and **before** `clickable`, so the actual touch target is 40 dp — below the 48 dp accessibility minimum. Affects `ToolbarGlyphToggle`. Same class of failure as the 28 dp card overflow button and the 36 dp view toggles already noted in [`12-ux-plan.md`](12-ux-plan.md) Part 7.
+The `padding` was applied **inside** the 48 dp box and **before** `clickable`, so the actual touch target was 40 dp — below the 48 dp accessibility minimum. Affected `ToolbarGlyphToggle` (the pen/eraser toggle). Same class of failure as the still-open 28 dp card overflow button and 36 dp view toggles noted in [`12-ux-plan.md`](12-ux-plan.md) Part 7.
 
-**Severity: medium** (accessibility correctness). **Fix:** reorder — `clickable` before `padding`, or pad the content rather than the box.
+**Fix applied:** removed the inner `.padding(4.dp)` so `.selectable()` is applied directly to the full 48 dp box. Verified by reading the modifier chain: every control in `DrawingToolbar.kt` now goes `.size(48.dp)` → `.selectable()`/`.clickable()` with nothing in between. **Not yet verified with a real finger on a real touchscreen** — that requires a device.
 
-### 16. The toolbar has no content descriptions and hardcoded colours
+### 16. ✅ FIXED (Session 6) — The toolbar had no content descriptions and used hardcoded colours
 
-Only the clear button has a `contentDescription`. Pen, eraser, undo, redo, every colour swatch and every width preset are unlabelled `Text` glyphs inside clickable `Box`es — a screen reader announces `✒`, `⌫`, `↶`, `↷` by unicode name, or nothing at all.
+Only the clear button had a `contentDescription`. Pen, eraser, undo, redo, every colour swatch and every width preset were unlabelled `Text` glyphs inside clickable `Box`es — a screen reader would announce `✒`, `⌫`, `↶`, `↷` by unicode name, or nothing at all.
 
-Every colour in the file is an inline `Color(0xFF…)` literal, including a hardcoded `Color.White` background. **Consequence: the tool rail will be invisible on dark paper** ([V1](22-decisions.md#v1--app-theme-and-paper-theme-are-separate-settings)) and wrong in dark mode.
+Every colour in the file was an inline `Color(0xFF…)` literal, including a hardcoded `Color.White` background — invisible on dark paper ([V1](22-decisions.md#v1--app-theme-and-paper-theme-are-separate-settings)) and wrong in dark mode.
 
-**Severity: medium.** **Fix:** `VAHI-003`.
+**Fix applied:**
+- Every control now carries a `contentDescription` via `Modifier.semantics { contentDescription = … }`, and toggle-style controls (pen/eraser, colour, width) use `Modifier.selectable(selected = …, role = Role.RadioButton)` rather than a bare `clickable`, so TalkBack announces selected state correctly rather than just a label.
+- All UI-chrome colours now reference `MaterialTheme.colorScheme.*` (surface, primary, onSurface, onSurfaceVariant, outlineVariant), which already responds to light/dark via `VahiTheme` — not a full semantic-token migration ([`13-visual-design-system.md`](13-visual-design-system.md), still `VAHI-203`), but no longer hardcoded, and no longer invisible on a dark theme.
+- The 5-swatch ink palette (the pen colours themselves, not UI chrome) moved to five named constants in `Color.kt` (`VahiInkBlack/Purple/Blue/Red/Green`) — these stay fixed across themes deliberately, since they're user-selected pigment content, not adaptive chrome.
+
+`grep -c '0x[0-9A-Fa-f]\{6,8\}' DrawingToolbar.kt` → 0.
+
+### 18. ✅ FIXED (Session 6) — The width preview rendered a pixel value as dp
+
+```kotlin
+Modifier.size(width = 22.dp, height = (width * 0.9f).dp)   // width is a stroke width in px
+```
+
+`strokeWidth` values (`2f`, `4f`, `8f`) are canvas **pixels**, reinterpreted as **dp** for the preview box height via an arbitrary `*0.9f` fudge factor. The three presets therefore did not visually match the strokes they produced, and the mismatch scaled with device density.
+
+**Fix applied:** a `WidthPreset` type now pairs each stroke's actual canvas width (px, used for drawing) with an independently-chosen `previewHeight: Dp` (used only for the swatch), so the two units can never be conflated again. **Still not the full fix** — [`15-ux-blueprint.md`](15-ux-blueprint.md) §5.4 calls for showing widths as actual rendered strokes, which is the fuller pen-slot rework, `VAHI-210`.
 
 ### 17. Leaving the editor discards an in-progress stroke
 
@@ -224,13 +239,13 @@ Modifier.size(width = 22.dp, height = (width * 0.9f).dp)   // width is a stroke 
 
 **Severity: low.** **Fix:** covered by the pen-slot rework (`VAHI-210`), which shows widths as actual rendered strokes rather than sized boxes.
 
-### 19. Android Auto Backup is silently enabled with template rules
+### 19. ✅ FIXED (Session 6) — Android Auto Backup was silently enabled with template rules
 
-`AndroidManifest.xml` declares `allowBackup="true"` and points at `backup_rules.xml` / `data_extraction_rules.xml` — both of which are **untouched templates with every rule commented out**.
+`AndroidManifest.xml` declares `allowBackup="true"` and pointed at `backup_rules.xml` / `data_extraction_rules.xml` — both of which were **untouched templates with every rule commented out**.
 
-Harmless today (there is no data). **The moment Room lands, the entire notebook database silently becomes Auto-Backup eligible**, with a 25 MB quota that fails silently when exceeded and a restore path that can overwrite newer notes with older ones and no conflict UI.
+Was harmless (there was no data). The moment Room landed it would have silently made the entire notebook database Auto-Backup eligible, with a 25 MB quota that fails silently when exceeded and a restore path that can overwrite newer notes with older ones with no conflict UI.
 
-**Severity: latent-high.** **Fix:** explicit exclusions before persistence ships — [D13](22-decisions.md#d13--android-auto-backup-is-disabled-for-notebook-data), tracked as `VAHI-005`.
+**Fix applied:** both files now explicitly exclude `database/vahi.db` and `file/notebooks/` — `backup_rules.xml` for API 26-30, `data_extraction_rules.xml`'s `<cloud-backup>` and `<device-transfer>` for API 31+ — per [D13](22-decisions.md#d13--android-auto-backup-is-disabled-for-notebook-data). Excluding paths that don't exist yet is harmless and means nobody has to remember this later, under schedule pressure, once there's real user data at stake.
 
 ### 20. The eraser skips strokes during a fast drag
 
@@ -271,14 +286,14 @@ Not bugs, but things a reviewer would flag.
 
 ## What a reviewer should check first
 
-If you're picking this project up cold, verify these yourself before planning anything. **The first three need a real tablet** — an emulator cannot show you them.
+If you're picking this project up cold, verify these yourself before planning anything. **The first two need a real tablet** — an emulator cannot show you them.
 
-1. **Rest your palm on the screen and write with a stylus.** The palm draws; the stylus does not. (Bug #14 — the most important thing in this document.)
-2. **Tap the delete icon on the tool rail.** Everything is gone and undo cannot bring it back. (Bug #13.)
-3. **Start a stroke and press back without lifting.** The stroke is discarded. (Bug #17.)
-4. Draw on a canvas, press back, re-enter — the ink is gone. (Bug: no persistence.)
-5. Rotate the device on any screen — you land back on the splash. (Bug #1.)
-6. Try to scroll the Grid canvas. You can't. (Bug #2.)
-7. Turn on TalkBack and try to use the tool rail. Almost nothing is announced. (Bug #16.)
+1. **Rest your palm on the screen and write with a stylus.** The palm draws; the stylus does not. (Bug #14 — the most important thing in this document, and still unfixed.)
+2. **Start a stroke and press back without lifting.** The stroke is discarded. (Bug #17, still unfixed.)
+3. Draw on a canvas, press back, re-enter — the ink is gone. (Bug: no persistence.)
+4. Rotate the device on any screen — you land back on the splash. (Bug #1.)
+5. Try to scroll the Grid canvas. You can't. (Bug #2.)
+6. ~~Tap the delete icon on the tool rail — everything is gone and undo can't bring it back.~~ **Fixed in Session 6** (bug #13) — Clear now shows an "Undo" snackbar. Worth re-checking that the snackbar actually restores the page correctly.
+7. ~~Turn on TalkBack and try to use the tool rail — almost nothing is announced.~~ **Fixed in Session 6** (bug #16) — every control now has a `contentDescription`. Worth confirming TalkBack actually reads them as expected.
 
-> **Nothing in this list has been verified on a device by any session so far** — the working environment has had no GUI. Items 1–3 are read out of the source and are high-confidence, but the honest status is *"found by code review, not yet reproduced"*. Reproducing them is `VAHI-008`.
+> **Nothing in this list has been verified on a real device by any session so far** — the working environment has had no GUI, only a JVM toolchain. Bugs #13/#15/#16/#18 were fixed and confirmed via unit tests (Robolectric) and a full `assembleDebug`/`testDebugUnitTest`, which verifies the code compiles and the logic is correct — it does **not** verify layout, touch response, or screen-reader behaviour on real hardware. Items 1–2 are still read out of the source, unreproduced. Getting a real tablet is `VAHI-008`.

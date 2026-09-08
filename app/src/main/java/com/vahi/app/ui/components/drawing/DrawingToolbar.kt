@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -24,52 +26,76 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vahi.app.ui.theme.VahiInkBlack
+import com.vahi.app.ui.theme.VahiInkBlue
+import com.vahi.app.ui.theme.VahiInkGreen
+import com.vahi.app.ui.theme.VahiInkPurple
+import com.vahi.app.ui.theme.VahiInkRed
+
+/** One stroke-width preset: the actual canvas width it draws with, and an
+ *  independently-chosen preview size for the swatch. These used to be the
+ *  same Float reinterpreted as dp (docs/09-project-status.md bug #18) —
+ *  keeping them as two explicit fields makes that unit mixup impossible. */
+private data class WidthPreset(val strokeWidthPx: Float, val previewHeight: Dp)
 
 /**
  * Floating vertical tool rail for the drawing canvas.
  * Wires directly to [CanvasState] — pen/eraser selection, a small colour palette,
- * stroke-width presets, and undo/redo/clear all already existed in CanvasState
+ * stroke-width presets, and undo/redo all already existed in CanvasState
  * with no UI to reach them (docs/09, "implemented but unreachable").
  *
  * Placement follows docs/12 §3.1: a left-edge rail keeps controls away from the
  * writing hand's palm on a landscape tablet. Handedness (mirroring to the right
  * edge) is left for a future pass — see docs/12 §3.1 and §8.1.
+ *
+ * @param onClear invoked when the user taps Clear, instead of calling
+ *   [CanvasState.clearAll] directly, so the caller can offer "Undo" (the button
+ *   sits right below Undo/Redo, and a mis-tap here is the single most severe
+ *   bug found in the Session 5 re-audit — docs/09-project-status.md bug #13).
  */
 @Composable
 fun DrawingToolbar(
     canvasState: CanvasState,
+    onClear: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val palette = remember {
+        listOf(VahiInkBlack, VahiInkPurple, VahiInkBlue, VahiInkRed, VahiInkGreen)
+    }
+    val widthPresets = remember {
         listOf(
-            Color(0xFF2A2A2A), // near-black ink
-            Color(0xFF7C4DFF), // Vahi purple
-            Color(0xFF1A73E8), // blue
-            Color(0xFFD93025), // red
-            Color(0xFF1E8E3E)  // green
+            WidthPreset(strokeWidthPx = 2f, previewHeight = 3.dp),
+            WidthPreset(strokeWidthPx = 4f, previewHeight = 6.dp),
+            WidthPreset(strokeWidthPx = 8f, previewHeight = 11.dp)
         )
     }
-    val widths = remember { listOf(2f, 4f, 8f) }
 
     Column(
         modifier = modifier
             .width(56.dp)
             .shadow(4.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         ToolbarGlyphToggle(
-            glyph = "✒", // ✒ pen
+            glyph = "✒",
+            label = "Pen tool",
             selected = canvasState.activeTool == ToolType.PEN,
             onClick = { canvasState.activeTool = ToolType.PEN }
         )
         ToolbarGlyphToggle(
-            glyph = "⌫", // ⌫ eraser
+            glyph = "⌫",
+            label = "Eraser tool",
             selected = canvasState.activeTool == ToolType.ERASER,
             onClick = { canvasState.activeTool = ToolType.ERASER }
         )
@@ -89,30 +115,33 @@ fun DrawingToolbar(
 
         ToolbarDivider()
 
-        widths.forEach { width ->
+        widthPresets.forEach { preset ->
             WidthSwatch(
-                width = width,
-                selected = canvasState.strokeWidth == width,
-                onClick = { canvasState.strokeWidth = width }
+                preset = preset,
+                selected = canvasState.strokeWidth == preset.strokeWidthPx,
+                onClick = { canvasState.strokeWidth = preset.strokeWidthPx }
             )
         }
 
         ToolbarDivider()
 
         ToolbarGlyphButton(
-            glyph = "↶", // ↶ undo
+            glyph = "↶",
+            label = "Undo",
             enabled = canvasState.canUndo(),
             onClick = { canvasState.undo() }
         )
         ToolbarGlyphButton(
-            glyph = "↷", // ↷ redo
+            glyph = "↷",
+            label = "Redo",
             enabled = canvasState.canRedo(),
             onClick = { canvasState.redo() }
         )
         ToolbarIconButton(
             icon = Icons.Default.Delete,
+            label = "Clear page",
             enabled = canvasState.strokes.isNotEmpty(),
-            onClick = { canvasState.clearAll() }
+            onClick = onClear
         )
     }
 }
@@ -120,31 +149,47 @@ fun DrawingToolbar(
 @Composable
 private fun ToolbarDivider() {
     HorizontalDivider(
-        modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp),
+        modifier = Modifier
+            .padding(vertical = 4.dp, horizontal = 12.dp)
+            .clearAndSetSemantics {},
         thickness = 1.dp,
-        color = Color(0xFFECECEC)
+        color = MaterialTheme.colorScheme.outlineVariant
     )
 }
 
+/**
+ * A 48dp selectable circular toggle. The clickable/selectable modifier is applied
+ * directly to the full-size box — a prior version applied `.padding(4.dp)` before
+ * `.clickable`, shrinking the actual touch target to 40dp (docs/09 bug #15).
+ */
 @Composable
 private fun ToolbarGlyphToggle(
     glyph: String,
+    label: String,
     selected: Boolean,
     onClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .size(48.dp)
-            .padding(4.dp)
             .clip(CircleShape)
-            .background(if (selected) Color(0xFFE8E6FF) else Color.Transparent)
-            .clickable(onClick = onClick),
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                else Color.Transparent
+            )
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.RadioButton
+            )
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = glyph,
             fontSize = 18.sp,
-            color = if (selected) Color(0xFF7C4DFF) else Color(0xFF666666)
+            color = if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -152,6 +197,7 @@ private fun ToolbarGlyphToggle(
 @Composable
 private fun ToolbarGlyphButton(
     glyph: String,
+    label: String,
     enabled: Boolean,
     onClick: () -> Unit
 ) {
@@ -159,13 +205,15 @@ private fun ToolbarGlyphButton(
         modifier = Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = glyph,
             fontSize = 20.sp,
-            color = if (enabled) Color(0xFF333333) else Color(0xFFCCCCCC)
+            color = if (enabled) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
         )
     }
 }
@@ -173,6 +221,7 @@ private fun ToolbarGlyphButton(
 @Composable
 private fun ToolbarIconButton(
     icon: ImageVector,
+    label: String,
     enabled: Boolean,
     onClick: () -> Unit
 ) {
@@ -180,13 +229,15 @@ private fun ToolbarIconButton(
         modifier = Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = "Clear canvas",
-            tint = if (enabled) Color(0xFF333333) else Color(0xFFCCCCCC),
+            contentDescription = null, // described by the parent Box's semantics above
+            tint = if (enabled) MaterialTheme.colorScheme.onSurface
+                   else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
             modifier = Modifier.size(22.dp)
         )
     }
@@ -201,7 +252,12 @@ private fun ColorSwatch(
     Box(
         modifier = Modifier
             .size(48.dp)
-            .clickable(onClick = onClick),
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.RadioButton
+            )
+            .semantics { contentDescription = "Ink colour" },
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -210,7 +266,7 @@ private fun ColorSwatch(
                 .clip(CircleShape)
                 .background(color)
                 .then(
-                    if (selected) Modifier.border(2.dp, Color(0xFF7C4DFF), CircleShape)
+                    if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
                     else Modifier
                 )
         )
@@ -219,7 +275,7 @@ private fun ColorSwatch(
 
 @Composable
 private fun WidthSwatch(
-    width: Float,
+    preset: WidthPreset,
     selected: Boolean,
     onClick: () -> Unit
 ) {
@@ -227,15 +283,23 @@ private fun WidthSwatch(
         modifier = Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .background(if (selected) Color(0xFFE8E6FF) else Color.Transparent)
-            .clickable(onClick = onClick),
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                else Color.Transparent
+            )
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.RadioButton
+            )
+            .semantics { contentDescription = "Stroke width" },
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .size(width = 22.dp, height = (width * 0.9f).dp)
+                .size(width = 22.dp, height = preset.previewHeight)
                 .clip(RoundedCornerShape(50))
-                .background(Color(0xFF333333))
+                .background(MaterialTheme.colorScheme.onSurface)
         )
     }
 }

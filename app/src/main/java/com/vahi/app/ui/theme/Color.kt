@@ -81,3 +81,13 @@ val VahiAccentPurple = Color(0xFF7C4DFF)            // Vibrant purple accent
 // Text colors that pass WCAG AA contrast on white (4.5:1 minimum).
 // #999999/#AAAAAA (previously used for placeholders) fail AA — see docs/13, section 3.3.
 val VahiTextPlaceholder = Color(0xFF767676)         // Placeholder text — lightest gray that still passes AA
+
+// Ink palette — fixed pigment colours offered on the canvas tool rail's pen slots.
+// These are content the user selects to draw with (like swatches on a physical pen
+// case), not adaptive UI chrome, so they stay constant across light/dark theme rather
+// than remapping like the tokens above. See docs/16-canvas-spec.md §3.2.
+val VahiInkBlack = Color(0xFF2A2A2A)
+val VahiInkPurple = Color(0xFF7C4DFF)
+val VahiInkBlue = Color(0xFF1A73E8)
+val VahiInkRed = Color(0xFFD93025)
+val VahiInkGreen = Color(0xFF1E8E3E)

@@ -5,6 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +22,7 @@ import androidx.compose.ui.zIndex
 import com.vahi.app.ui.components.drawing.CanvasState
 import com.vahi.app.ui.components.drawing.DrawingCanvas
 import com.vahi.app.ui.components.drawing.DrawingToolbar
+import kotlinx.coroutines.launch
 
 /**
  * Canvas type enum.
@@ -46,6 +51,26 @@ fun CanvasScreen(
         onBack()
     }
 
+    // Clear is one tap and sits directly below Undo/Redo — it used to be
+    // unrecoverable (docs/09-project-status.md bug #13). CanvasState.clearAll()
+    // now snapshots the page first; this offers it back via a snackbar.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val onClear: () -> Unit = {
+        canvasState.clearAll()
+        coroutineScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = "Page cleared",
+                actionLabel = "Undo",
+                withDismissAction = false,
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                canvasState.undoClear()
+            }
+        }
+    }
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -68,6 +93,7 @@ fun CanvasScreen(
         // all of which existed in CanvasState with no way to reach them (docs/09).
         DrawingToolbar(
             canvasState = canvasState,
+            onClear = onClear,
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
@@ -82,7 +108,7 @@ fun CanvasScreen(
         } else {
             Alignment.BottomStart
         }
-        
+
         BackArrowButton(
             onClick = onBack,
             isGrid = canvasType == CanvasType.GRID,
@@ -91,6 +117,16 @@ fun CanvasScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(if (canvasType == CanvasType.GRID) 16.dp else 24.dp)
                 .zIndex(100f)
+        )
+
+        // Layer 5: Snackbar host — surfaces the "Undo" action after Clear.
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(bottom = 16.dp)
+                .zIndex(110f)
         )
     }
 }

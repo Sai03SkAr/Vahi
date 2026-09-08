@@ -111,14 +111,14 @@ Was dead code, never referenced. Sketched the intended tablet workspace: 64 dp t
 ### `drawing/Stroke.kt` ✅ · 20 lines
 `data class Stroke(id: UUID, path: Path, color: Color = Black, strokeWidth: Float = 4f)`.
 
-### `drawing/CanvasState.kt` ✅ · 162 lines
-`enum class ToolType { PEN, ERASER }` and `class CanvasState`. Holds `strokes`, `undoneStrokes`, `currentStroke`, `activeTool`, `strokeColor`, `strokeWidth`. Methods: `startStroke`, `continueStroke`, `finishStroke`, `cancelStroke` ⚠️(uncalled), `eraseAtPosition`, private `strokeIntersectsRect`, `undo` ⚠️(uncalled), `redo` ⚠️(uncalled), `canUndo`, `canRedo`, `clearAll` ⚠️(uncalled).
+### `drawing/CanvasState.kt` ✅ · ~185 lines
+`enum class ToolType { PEN, ERASER }` and `class CanvasState`. Holds `strokes`, `undoneStrokes`, `currentStroke`, `activeTool`, `strokeColor`, `strokeWidth`. Methods: `startStroke`, `continueStroke`, `finishStroke`, `cancelStroke` ⚠️(still uncalled from anywhere — no gesture maps to it yet), `eraseAtPosition`, private `strokeIntersectsRect`, `undo`, `redo`, `canUndo`, `canRedo` (all called from `DrawingToolbar` since Session 4 — corrected here in Session 6, this line previously said "uncalled" and was stale), `clearAll` (called from `DrawingToolbar` via `CanvasScaffold`'s `onClear`). **New in Session 6:** `canUndoClear()` / `undoClear()` — a one-level snapshot-restore for `clearAll()`, fixing bug #13. Covered by `app/src/test/.../CanvasStateTest.kt` (Robolectric, 6 tests).
 
 ### `drawing/DrawingCanvas.kt` ✅ · 94 lines
 `DrawingCanvas(canvasState, modifier)` — a transparent `Canvas` with a raw `awaitPointerEvent` loop keyed on `activeTool`, dispatching to pen or eraser behaviour, and a draw phase that repaints every stroke plus the in-progress one with round caps and joins.
 
-### `drawing/DrawingToolbar.kt` ✅ **new (Session 4)** · 241 lines
-> ⚠️ **Session 5 found four defects here:** the Clear button is unrecoverable (#13), touch targets are 40 dp not 48 dp (#15), there are no content descriptions and every colour is hardcoded so the rail is invisible on dark paper (#16), and the width preview renders a pixel value as dp (#18). Fix tracked as `VAHI-003`.
+### `drawing/DrawingToolbar.kt` ✅ **new (Session 4)**, fixed (Session 6) · ~250 lines
+> Session 5 found four defects here — the Clear button was unrecoverable (#13), touch targets were 40 dp not 48 dp (#15), no content descriptions and every colour hardcoded so the rail was invisible on dark paper (#16), and the width preview rendered a pixel value as dp (#18). **All four fixed in Session 6** (`VAHI-003`) — see `09-project-status.md` for detail. Clear now takes an `onClear` callback rather than calling `CanvasState.clearAll()` directly, so `CanvasScaffold.kt` can offer an "Undo" snackbar.
 
 `DrawingToolbar(canvasState, modifier)` — a floating vertical tool rail wired directly to `CanvasState`. Pen/eraser toggle, 5 fixed colour swatches, 3 fixed width presets, and undo/redo/clear (disabled state reflects `canUndo()`/`canRedo()`/`strokes.isNotEmpty()`). Uses text glyphs for pen/eraser/undo/redo (`✒ ⌫ ↶ ↷`, consistent with the app's existing icon convention) and `Icons.Default.Delete` for clear. Wired into `CanvasScaffold.kt` at `Alignment.CenterStart`. See `12-ux-plan.md` §3.1–3.2 and `13-visual-design-system.md` §8.1 for the design rationale; the fuller pen-slot-configuration-popover spec (§8.2) is not yet built.
 
