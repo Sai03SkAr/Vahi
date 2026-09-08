@@ -63,7 +63,9 @@ private val VahiLightColorScheme = lightColorScheme(
 @Composable
 fun VahiTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    // Default to the hand-authored Vahi palette rather than Material You —
+    // brand consistency is preferred over wallpaper-derived colour (decision D4).
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

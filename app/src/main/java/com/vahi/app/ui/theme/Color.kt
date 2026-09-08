@@ -60,3 +60,24 @@ val VahiOnErrorDark = Color(0xFF601410)
 // Outline colors
 val VahiOutlineLight = Color(0xFF79747E)
 val VahiOutlineDark = Color(0xFF938F99)
+
+// HomeScreen specific colors
+val VahiUpgradeButtonBg = Color(0xFF4A4A4A)         // Dark gray for upgrade button
+val VahiSettingsButtonBg = Color(0xFFF5F5F5)        // Light gray for settings button
+val VahiImportButtonBg = Color(0xFF1A73E8)          // Blue for import button
+val VahiCardLavender = Color(0xFFC4BFFF)            // Lavender notebook card
+val VahiFilterSelected = Color(0xFFF0F0F0)          // Selected filter pill background
+val VahiCreateCardBg = Color(0xFFF5F5F5)            // Create notebook card background
+val VahiPlusCircleBg = Color(0xFFE8E6FF)            // Light purple circle for plus icon
+
+// AuthScreen & Input colors
+val VahiInputBorder = Color(0xFFB8B5FF)             // Purple/lavender input border
+val VahiInputBorderFocused = Color(0xFF8B85FF)      // Brighter purple when focused
+val VahiAppleButtonBg = Color(0xFF000000)           // Black for Apple button
+
+// Accent colors for vibrancy
+val VahiAccentPurple = Color(0xFF7C4DFF)            // Vibrant purple accent
+
+// Text colors that pass WCAG AA contrast on white (4.5:1 minimum).
+// #999999/#AAAAAA (previously used for placeholders) fail AA — see docs/13, section 3.3.
+val VahiTextPlaceholder = Color(0xFF767676)         // Placeholder text — lightest gray that still passes AA

@@ -3,13 +3,19 @@ package com.vahi.app.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,15 +30,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.vahi.app.R
+import com.vahi.app.ui.theme.*
 import kotlin.math.roundToInt
 
 /* ---------- DATA ---------- */
@@ -55,6 +65,10 @@ data class CardMenuAnchor(
 fun HomeScreen(
     onNavigateToCanvas: (NotebookType) -> Unit = {}
 ) {
+    // Density for converting captured pointer/layout offsets (px) to dp for overlay positioning —
+    // see docs/09, bug #3: these offsets come from positionInRoot() and are in pixels, not dp.
+    val density = LocalDensity.current
+
     // State for full-screen modal
     var isCreateNotebookOpen by remember { mutableStateOf(false) }
     
@@ -141,43 +155,37 @@ fun HomeScreen(
                         indication = null
                     ) { closeDropdowns() }
             ) {
-                // Card Context Menu - anchored to the three-dot button
+                // Card Context Menu - anchored to the three-dot button, positioned within screen
                 cardMenuAnchor?.let { anchor ->
+                    val topPadding = with(density) { anchor.offset.y.toDp() } + 40.dp
                     Box(
-                        modifier = Modifier.offset {
-                            IntOffset(
-                                x = (anchor.offset.x - 140).roundToInt(), // Menu appears to the left of dots
-                                y = (anchor.offset.y + 40).roundToInt()  // Below the dots
-                            )
-                        }
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = topPadding, end = 24.dp)
                     ) {
                         CardContextMenu(onDismiss = { closeDropdowns() })
                     }
                 }
 
-                // Settings Overlay - anchored below Settings button
+                // Settings Overlay - anchored below Settings button, positioned within screen
                 if (isSettingsOpen) {
+                    val topPadding = with(density) { settingsButtonPosition.y.toDp() } + 48.dp
                     Box(
-                        modifier = Modifier.offset {
-                            IntOffset(
-                                x = (settingsButtonPosition.x - 180).roundToInt(),
-                                y = (settingsButtonPosition.y + 48).roundToInt()
-                            )
-                        }
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = topPadding, end = 60.dp)
                     ) {
                         SettingsOverlay(onDismiss = { closeDropdowns() })
                     }
                 }
 
-                // Profile Overlay - anchored below Profile avatar
+                // Profile Overlay - anchored below Profile avatar, positioned within screen
                 if (isProfileOpen) {
+                    val topPadding = with(density) { profileButtonPosition.y.toDp() } + 48.dp
                     Box(
-                        modifier = Modifier.offset {
-                            IntOffset(
-                                x = (profileButtonPosition.x - 200).roundToInt(),
-                                y = (profileButtonPosition.y + 48).roundToInt()
-                            )
-                        }
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = topPadding, end = 24.dp)
                     ) {
                         ProfileOverlay(onDismiss = { closeDropdowns() })
                     }
@@ -522,6 +530,7 @@ private fun HomeContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(24.dp)
     ) {
 
@@ -562,7 +571,7 @@ private fun TopBar(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-
+        // Vahi Logo
         Image(
             painter = painterResource(id = R.drawable.vahi_logo),
             contentDescription = "Vahi",
@@ -571,29 +580,61 @@ private fun TopBar(
 
         Spacer(Modifier.weight(1f))
 
-        AssistChip(
+        // Upgrade Button - Dark pill style
+        Surface(
             onClick = {},
-            label = { Text("Upgrade") }
-        )
+            shape = RoundedCornerShape(24.dp),
+            color = VahiUpgradeButtonBg
+        ) {
+            Text(
+                text = "Upgrade",
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
 
         Spacer(Modifier.width(12.dp))
 
-        AssistChip(
+        // Settings Button - Light pill with gear icon
+        Surface(
             onClick = onSettings,
-            label = { Text("Settings") },
+            shape = RoundedCornerShape(24.dp),
+            color = VahiSettingsButtonBg,
             modifier = Modifier.onGloballyPositioned { coordinates ->
                 val position = coordinates.positionInRoot()
                 onSettingsButtonPositioned(position)
             }
-        )
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Color(0xFF333333)
+                )
+                Text(
+                    text = "Settings",
+                    color = Color(0xFF333333),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
 
         Spacer(Modifier.width(12.dp))
 
+        // Profile Avatar - Circular with colored background
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(50))
-                .background(Color(0xFFD9D9D9))
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFE8D4A8)) // Warm beige background
                 .onGloballyPositioned { coordinates ->
                     val position = coordinates.positionInRoot()
                     onProfileButtonPositioned(position)
@@ -601,9 +642,10 @@ private fun TopBar(
                 .clickable { onProfile() },
             contentAlignment = Alignment.Center
         ) {
+            // Placeholder bird emoji or icon
             Text(
-                text = "P",
-                fontWeight = FontWeight.Bold
+                text = "🐦",
+                fontSize = 20.sp
             )
         }
     }
@@ -613,10 +655,44 @@ private fun TopBar(
 
 @Composable
 private fun FiltersRow() {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        AssistChip(onClick = {}, label = { Text("All") })
-        Text("Pinned notes", modifier = Modifier.align(Alignment.CenterVertically))
-        Text("Imported Books", modifier = Modifier.align(Alignment.CenterVertically))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // "All" tab - selected state with pill background
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = VahiFilterSelected,
+            modifier = Modifier.clickable { }
+        ) {
+            Text(
+                text = "All",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF333333)
+            )
+        }
+
+        // "Pinned notes" - plain text
+        Text(
+            text = "Pinned notes",
+            modifier = Modifier
+                .clickable { }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            fontSize = 14.sp,
+            color = Color(0xFF666666)
+        )
+
+        // "Imported Books" - plain text
+        Text(
+            text = "Imported Books",
+            modifier = Modifier
+                .clickable { }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            fontSize = 14.sp,
+            color = Color(0xFF666666)
+        )
     }
 }
 
@@ -628,16 +704,132 @@ private fun ToolbarRow(onCreateNotebook: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("Search", color = Color.Gray)
+        // Search bar on the left
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFFF8F8F8),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE8E8E8)),
+            modifier = Modifier.width(280.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Search icon
+                Text(
+                    text = "🔍",
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = "Search notebooks...",
+                    fontSize = 14.sp,
+                    color = VahiTextPlaceholder
+                )
+            }
+        }
 
         Spacer(Modifier.weight(1f))
 
-        Text("Most recent")
+        // View mode toggles
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp)),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Checkmark - selected view indicator
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(Color.White)
+                    .clickable { },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Selected",
+                    modifier = Modifier.size(18.dp),
+                    tint = Color(0xFF333333)
+                )
+            }
+
+            // Grid view icon
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(Color.White)
+                    .clickable { },
+                contentAlignment = Alignment.Center
+            ) {
+                // 4-square grid icon using text
+                Text(
+                    text = "⊞",
+                    fontSize = 16.sp,
+                    color = Color(0xFF666666)
+                )
+            }
+
+            // List view icon
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(Color.White)
+                    .clickable { },
+                contentAlignment = Alignment.Center
+            ) {
+                // List lines icon using text
+                Text(
+                    text = "≡",
+                    fontSize = 18.sp,
+                    color = Color(0xFF666666)
+                )
+            }
+        }
 
         Spacer(Modifier.width(16.dp))
 
-        Button(onClick = {}) {
-            Text("Import")
+        // "Most recent" dropdown
+        Surface(
+            onClick = {},
+            shape = RoundedCornerShape(20.dp),
+            color = Color.White,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Most recent",
+                    fontSize = 14.sp,
+                    color = Color(0xFF333333)
+                )
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = Color(0xFF333333)
+                )
+            }
+        }
+
+        Spacer(Modifier.width(16.dp))
+
+        // "Import" button - Blue filled pill
+        Surface(
+            onClick = {},
+            shape = RoundedCornerShape(24.dp),
+            color = VahiImportButtonBg
+        ) {
+            Text(
+                text = "Import",
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
@@ -683,21 +875,36 @@ private fun CreateNotebookCard(onClick: () -> Unit) {
         modifier = Modifier
             .size(260.dp, 200.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFF2F2F2))
+            .background(VahiCreateCardBg)
+            .border(1.dp, Color(0xFFE8E8E8), RoundedCornerShape(16.dp))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Plus icon in a light purple circle
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(VahiPlusCircleBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Light,
+                    color = Color(0xFF7B68EE) // Medium slate blue
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
             Text(
-                text = "+",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Light,
-                color = Color(0xFF666666)
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Create new notebook",
-                fontSize = 18.sp,
+                text = "Create new notebook",
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF333333)
             )
@@ -717,21 +924,33 @@ private fun NotebookCard(
             .size(260.dp, 200.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(notebook.color)
-            .padding(16.dp)
     ) {
-
-        Column {
-            Text(notebook.title, fontSize = 20.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(8.dp))
-            Text(notebook.created, fontSize = 14.sp)
+        // Notebook icon in top-left
+        Box(
+            modifier = Modifier
+                .padding(16.dp)
+                .size(40.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            // Icon placeholder - abacus for Maths, laptop for Python, etc.
+            Text(
+                text = if (notebook.title.contains("Maths", ignoreCase = true)) "🧮" 
+                       else if (notebook.title.contains("Python", ignoreCase = true)) "💻"
+                       else "📓",
+                fontSize = 20.sp
+            )
         }
 
-        // Three-dot menu button
+        // Three-dot menu button in top-right
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .padding(12.dp)
+                .size(28.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.White.copy(alpha = 0.4f))
                 .onGloballyPositioned { coordinates ->
                     menuButtonPosition = coordinates.positionInRoot()
                 }
@@ -741,9 +960,30 @@ private fun NotebookCard(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "⋮",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                text = "⋮⋮",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF666666)
+            )
+        }
+
+        // Title and date at the bottom
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(16.dp)
+        ) {
+            Text(
+                text = notebook.title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF333333)
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = notebook.created,
+                fontSize = 12.sp,
+                color = Color(0xFF666666)
             )
         }
     }
