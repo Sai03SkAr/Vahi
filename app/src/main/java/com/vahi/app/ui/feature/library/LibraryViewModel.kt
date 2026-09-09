@@ -4,9 +4,11 @@ import androidx.lifecycle.viewModelScope
 import com.vahi.app.core.model.PaperStyle
 import com.vahi.app.domain.model.Notebook
 import com.vahi.app.domain.repository.NotebookRepository
+import com.vahi.app.domain.repository.PreferencesRepository
 import com.vahi.app.viewmodel.BaseViewModel
 import com.vahi.app.viewmodel.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,19 +26,29 @@ import javax.inject.Inject
  */
 data class LibraryUiState(
     val notebooks: List<Notebook> = emptyList(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    /** The user's remembered default from Settings (`VAHI-307`), used to pre-select
+     *  a style in the create-notebook modal (`VAHI-211`). Without this the
+     *  `defaultPaperStyle` preference would persist but never be read by anything —
+     *  a setting that silently does nothing. */
+    val defaultPaperStyle: PaperStyle = PaperStyle.BLANK
 ) : UiState
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
-    private val repository: NotebookRepository
+    private val repository: NotebookRepository,
+    private val preferences: PreferencesRepository
 ) : BaseViewModel<LibraryUiState>(LibraryUiState()) {
 
     init {
         viewModelScope.launch {
-            repository.observeAll().collect { notebooks ->
-                setState(LibraryUiState(notebooks = notebooks, isLoading = false))
-            }
+            combine(repository.observeAll(), preferences.observe()) { notebooks, prefs ->
+                LibraryUiState(
+                    notebooks = notebooks,
+                    isLoading = false,
+                    defaultPaperStyle = prefs.defaultPaperStyle
+                )
+            }.collect { setState(it) }
         }
     }
 

@@ -244,25 +244,25 @@ fun HomeScreen(
         if (isCreateNotebookOpen) {
             Box(modifier = Modifier.zIndex(20f)) {
                 CreateNotebookOverlay(
+                    defaultPaperStyle = uiState.defaultPaperStyle,
                     onDismiss = { isCreateNotebookOpen = false },
                     onOptionSelected = { option ->
                         isCreateNotebookOpen = false
-                        val paperStyle = when (option) {
-                            "Blank" -> PaperStyle.BLANK
-                            "Ruled" -> PaperStyle.RULED
-                            "Grid" -> PaperStyle.GRID
-                            else -> null // "Import PDF" — no-op, needs androidx.pdf (v1.1, D8/D12)
-                        }
-                        if (paperStyle != null) {
-                            coroutineScope.launch {
+                        // Typed dispatch (VAHI-211) — this used to compare against the
+                        // "Blank"/"Ruled"/"Grid" display strings, so renaming a label in
+                        // the UI would silently break notebook creation.
+                        when (option) {
+                            is CreateNotebookChoice.Paper -> coroutineScope.launch {
                                 viewModel.createNotebook(
                                     title = "Untitled notebook",
                                     colorArgb = notebookColorPalette[uiState.notebooks.size % notebookColorPalette.size],
-                                    paperStyle = paperStyle
+                                    paperStyle = option.style
                                 ).onSuccess { notebook ->
                                     onNavigateToCanvas(notebook.id, notebook.paperStyle)
                                 }
                             }
+                            // No-op until androidx.pdf lands (v1.1, D8/D12) — VAHI-502.
+                            CreateNotebookChoice.ImportPdf -> Unit
                         }
                     }
                 )
@@ -283,10 +283,19 @@ fun HomeScreen(
 
 /* ---------- CREATE NOTEBOOK MODAL (WITH BLUR) ---------- */
 
+/** What the create-notebook modal can return. Replaces the former `(String) -> Unit`
+ *  callback that the caller matched against display labels — see `VAHI-211` and the
+ *  "String-literal dispatch" row in docs/09-project-status.md's code-quality table. */
+sealed interface CreateNotebookChoice {
+    data class Paper(val style: PaperStyle) : CreateNotebookChoice
+    data object ImportPdf : CreateNotebookChoice
+}
+
 @Composable
 fun CreateNotebookOverlay(
+    defaultPaperStyle: PaperStyle,
     onDismiss: () -> Unit,
-    onOptionSelected: (String) -> Unit
+    onOptionSelected: (CreateNotebookChoice) -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
 
@@ -337,19 +346,25 @@ fun CreateNotebookOverlay(
 
                 Spacer(Modifier.height(24.dp))
 
-                // 2x2 Grid of options
+                // 2x2 Grid of options. The user's remembered default (Settings →
+                // Appearance → Default paper style) is marked, so the modal opens
+                // already pointing at their usual choice.
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         CreateNotebookOption(
                             title = "Blank",
                             subtitle = "Clean pages for free drawing",
-                            onClick = { onOptionSelected("Blank") },
+                            glyph = "□",
+                            isDefault = defaultPaperStyle == PaperStyle.BLANK,
+                            onClick = { onOptionSelected(CreateNotebookChoice.Paper(PaperStyle.BLANK)) },
                             modifier = Modifier.weight(1f)
                         )
                         CreateNotebookOption(
                             title = "Ruled",
                             subtitle = "Lined pages for writing",
-                            onClick = { onOptionSelected("Ruled") },
+                            glyph = "≡",
+                            isDefault = defaultPaperStyle == PaperStyle.RULED,
+                            onClick = { onOptionSelected(CreateNotebookChoice.Paper(PaperStyle.RULED)) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -357,13 +372,17 @@ fun CreateNotebookOverlay(
                         CreateNotebookOption(
                             title = "Grid",
                             subtitle = "Grid pages for diagrams",
-                            onClick = { onOptionSelected("Grid") },
+                            glyph = "⊞",
+                            isDefault = defaultPaperStyle == PaperStyle.GRID,
+                            onClick = { onOptionSelected(CreateNotebookChoice.Paper(PaperStyle.GRID)) },
                             modifier = Modifier.weight(1f)
                         )
                         CreateNotebookOption(
                             title = "Import PDF",
                             subtitle = "Annotate existing documents",
-                            onClick = { onOptionSelected("Import PDF") },
+                            glyph = "↓",
+                            isDefault = false,
+                            onClick = { onOptionSelected(CreateNotebookChoice.ImportPdf) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -377,6 +396,8 @@ fun CreateNotebookOverlay(
 fun CreateNotebookOption(
     title: String,
     subtitle: String,
+    glyph: String,
+    isDefault: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -384,7 +405,12 @@ fun CreateNotebookOption(
         modifier = modifier.height(120.dp),
         shape = RoundedCornerShape(14.dp),
         color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0)),
+        // The remembered default is outlined in the accent colour rather than given a
+        // separate badge — one glance, no extra chrome.
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isDefault) 2.dp else 1.dp,
+            color = if (isDefault) VahiAccentPurple else Color(0xFFE0E0E0)
+        ),
         onClick = onClick
     ) {
         Row(
@@ -398,14 +424,10 @@ fun CreateNotebookOption(
                     .background(Color(0xFFF0F0F0)),
                 contentAlignment = Alignment.Center
             ) {
+                // Passed in rather than derived from `title` — the glyph used to be
+                // chosen by matching the display string (VAHI-211).
                 Text(
-                    text = when (title) {
-                        "Blank" -> "□"
-                        "Ruled" -> "≡"
-                        "Grid" -> "⊞"
-                        "Import PDF" -> "↓"
-                        else -> "•"
-                    },
+                    text = glyph,
                     fontSize = 16.sp,
                     color = Color(0xFF666666)
                 )
@@ -469,7 +491,7 @@ fun CardContextMenu(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .height(48.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .clickable {
                             action()
@@ -999,28 +1021,38 @@ private fun NotebookCard(
             )
         }
 
-        // Three-dot menu button in top-right
+        // Three-dot menu button in top-right. The touch target is a transparent 48dp
+        // box; the visible chip stays 28dp. Previously the 28dp chip *was* the target
+        // — well under the 48dp minimum, on the control that opens delete and pin.
+        // Outer padding is 2dp rather than the old 12dp so the chip's visual centre
+        // lands where it did before (12 + 28/2 == 2 + 48/2), and the dropdown anchor
+        // stays on the chip itself so the menu still opens in the same place.
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .size(28.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(Color.White.copy(alpha = 0.4f))
-                .onGloballyPositioned { coordinates ->
-                    menuButtonPosition = coordinates.positionInRoot()
-                }
-                .clickable {
-                    onMenuClick(menuButtonPosition)
-                },
+                .padding(2.dp)
+                .size(48.dp)
+                .clickable { onMenuClick(menuButtonPosition) }
+                .semantics { contentDescription = "Notebook options" },
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "⋮⋮",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF666666)
-            )
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.White.copy(alpha = 0.4f))
+                    .onGloballyPositioned { coordinates ->
+                        menuButtonPosition = coordinates.positionInRoot()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "⋮⋮",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF666666)
+                )
+            }
         }
 
         // Title and last-edited time at the bottom. "Edited 2 hours ago" is more

@@ -8,6 +8,46 @@ Purpose: if a session ends abruptly or a usage limit is hit, the next session re
 
 ---
 
+## 2026-09-09 — Session 7, verification pass: found the Settings screen was six controls that did nothing
+
+**Requested:** "test everything properly and give everything a last check… see if everything is working… let me know what all is left."
+
+Treated as a real audit rather than a re-read of my own claims — checking each documented assertion against `grep` and the compiler. That was the right call, because the headline finding contradicts what the pass immediately below this one reported as done.
+
+### The main finding: a Settings screen where every control silently did nothing
+
+`VAHI-406` shipped six preferences that persisted correctly through DataStore and were read back by **nothing**. A grep for consumers of `appTheme`, `paperTheme`, `handedness`, `fingerDrawEnabled`, `defaultPaperStyle` and `languageTag` outside the settings feature itself returned **zero hits for all six**. Toggling any of them changed a file on disk and nothing else.
+
+This is the "wiring up the ~20 no-op buttons" trap from `CLAUDE.md`'s own failure-mode table — walked into while *quoting that same table* as the reason not to build the Account and Vahi Plus sections. The lesson worth keeping: **building the persistence layer for a setting is not the same as making the setting work**, and "the Settings screen is done" was the wrong claim to have made. Resolved as:
+
+- **`appTheme` — wired.** New `AppThemeViewModel` feeds `MainActivity`, which computes `darkTheme` and passes it to `VahiTheme`. Honest limit: it genuinely works on the Settings screen, but `HomeScreen.kt` still hardcodes **44 colour literals**, so the library won't visibly change theme. Not fixed here — a blind 44-literal colour migration with no device to look at the result is not a safe change, and doc 13 §9 already schedules it with the `VAHI-206` refactor.
+- **`defaultPaperStyle` — wired**, via the `VAHI-211` work below; covered by a new test asserting the setting actually reaches library state.
+- **`paperTheme`, `handedness`, `fingerDrawEnabled` — still inert, and the UI now says so** ("Saved, but not applied yet"). Each is blocked on real work: the ink-colour mapping in the render path, `VAHI-210`, and device-gated ink-path pointer filtering respectively. A control that admits it isn't hooked up yet beats one that lies.
+
+### Two more real defects the audit turned up
+
+**A `core/` purity violation.** `ViewTransform.kt` imported `androidx.compose.ui.unit.Density`, contradicting the "pure Kotlin, zero Android deps" rule — and the backlog entry described using it as a *deliberate* choice. It read one `Float` field, so the dependency bought nothing; both functions now take `pixelsPerDp: Float`. Worth noting **why the existing safeguard missed it**: the "these tests need no Robolectric, which proves the layer is Android-free" argument is weaker than it reads — `Density` is a pure-Kotlin interface, so the tests passed either way. Only an import grep catches this class of drift. Directly relevant to doc 23's Axis B, where `core/` is meant to move to `commonMain` untouched.
+
+**Two live accessibility defects on primary controls.** The notebook card's overflow button was a **28 dp** target with no label — on the control that opens *delete*. The canvas back button was **44 dp** and **completely unlabelled**, meaning a screen-reader user had no identifiable way out of the editor. Both fixed (48 dp, real `contentDescription`); the overflow fix keeps the visible chip at 28 dp and the dropdown anchor on the chip, so nothing moves visually. Deliberately *not* fixed: the 36 dp view-mode toggles and 44 dp profile-menu rows — those are all no-ops, and polishing the touch target of a button that does nothing is the same trap again.
+
+### VAHI-211 (partial) — typed dispatch
+
+Killed the string-literal dispatch: `CreateNotebookOverlay` now returns a `CreateNotebookChoice` sealed type instead of a display string the caller matched on, so renaming a UI label can no longer silently break notebook creation. Closes that row in doc 09's code-quality table. The remaining half of `VAHI-211` (paper previews, name field, colour picker, Enter-to-create) is left for after the Figma read.
+
+### Verification
+
+Full `clean assembleDebug testDebugUnitTest` from **killed Gradle *and* Kotlin daemons** — `BUILD SUCCESSFUL`, confirming the Room/KSP `AbstractMethodError` from Session 6 is still contained. **68 tests, 0 failures, 0 errors** (up from 62; 6 new `LibraryViewModelTest` cases, the project's first ViewModel tests, using hand-written fakes rather than adding `mockk`/`turbine`). All internal doc links resolve. `core/` and `domain/` verified to contain zero `android`/`androidx` imports.
+
+### State at end
+
+Build green from cold. Nothing on my side is outstanding.
+
+### Next action
+
+Unchanged and still the binding constraint: **`VAHI-008` → `VAHI-101`** — a real mid-range Android tablet, to measure ink latency and settle D6. **Nothing in this project has ever been run on a device**, so every fix across Sessions 6–7 is verified by compilation, 68 passing tests and code reading — not by touching a screen.
+
+---
+
 ## 2026-09-08 — Session 7, third pass: VAHI-406, a real Settings screen
 
 **Requested:** direct continuation of the same session — `VAHI-406` was the natural next item once its one dependency (`VAHI-307`) landed in the pass immediately below.

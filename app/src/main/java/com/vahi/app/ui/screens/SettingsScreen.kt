@@ -172,10 +172,29 @@ private fun SettingSectionTitle(text: String) {
     Spacer(Modifier.height(16.dp))
 }
 
+/**
+ * @param notYetApplied true for settings that persist correctly but that nothing in
+ *   the app reads yet. Saying so on the control itself is the honest option: the
+ *   alternative is a switch the user flips that silently changes nothing, which is
+ *   worse than not offering it. Drop the flag as each one gets wired up.
+ */
 @Composable
-private fun <T> SettingsChoiceRow(label: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
+private fun <T> SettingsChoiceRow(
+    label: String,
+    options: List<Pair<T, String>>,
+    selected: T,
+    notYetApplied: Boolean = false,
+    onSelect: (T) -> Unit
+) {
     Column(modifier = Modifier.padding(bottom = 24.dp)) {
         Text(text = label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        if (notYetApplied) {
+            Text(
+                text = stringResource(R.string.settings_not_applied_yet),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             options.forEach { (value, optionLabel) ->
@@ -228,6 +247,10 @@ private fun AppearanceSection(
                 PaperTheme.DARK to stringResource(R.string.settings_paper_dark)
             ),
             selected = paperTheme,
+            // Needs the display-time ink-colour mapping in the render path
+            // (docs/22-decisions.md V1, docs/16-canvas-spec.md §7) — that is canvas
+            // rendering work, gated behind the ink-engine decision (D6/VAHI-101).
+            notYetApplied = true,
             onSelect = onPaperThemeChanged
         )
         SettingsChoiceRow(
@@ -259,6 +282,8 @@ private fun WritingSection(
                 Handedness.RIGHT to stringResource(R.string.settings_handedness_right)
             ),
             selected = handedness,
+            // Tool-rail mirroring is VAHI-210, which depends on VAHI-203/112/401.
+            notYetApplied = true,
             onSelect = onHandednessChanged
         )
 
@@ -271,6 +296,13 @@ private fun WritingSection(
                 )
                 Text(
                     text = stringResource(R.string.settings_finger_draw_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                // Filtering pointers by tool type is ink-engine work, and sits next to
+                // bug #14 (a resting palm draws) which needs a real device to fix.
+                Text(
+                    text = stringResource(R.string.settings_not_applied_yet),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

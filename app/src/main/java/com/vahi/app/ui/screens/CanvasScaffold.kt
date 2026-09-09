@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -142,14 +144,19 @@ private fun BackArrowButton(
     isGrid: Boolean,
     modifier: Modifier = Modifier
 ) {
+    // Both variants carry an explicit contentDescription: this is the only way out of
+    // the editor, and it was previously a bare glyph in a clickable Box — a screen
+    // reader announced "left arrow" or nothing at all. Both are also sized to the
+    // 48dp minimum (the grid variant was 44dp; the other had no minimum at all).
     if (isGrid) {
         // Grid: Original style with circle background, left arrow
         Box(
             modifier = modifier
-                .size(44.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .background(Color(0xFFF5F5F5))
-                .clickable { onClick() },
+                .clickable { onClick() }
+                .semantics { contentDescription = "Back to library" },
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -163,8 +170,9 @@ private fun BackArrowButton(
         // Blank/Ruled: Down arrow without background
         Box(
             modifier = modifier
+                .size(48.dp)
                 .clickable { onClick() }
-                .padding(8.dp),
+                .semantics { contentDescription = "Back to library" },
             contentAlignment = Alignment.Center
         ) {
             Text(

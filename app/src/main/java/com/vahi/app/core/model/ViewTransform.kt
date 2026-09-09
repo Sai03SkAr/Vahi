@@ -1,7 +1,5 @@
 package com.vahi.app.core.model
 
-import androidx.compose.ui.unit.Density
-
 /**
  * The scale + pan applied between document space and screen space. Rotation is out
  * of scope for v1 (docs/16-canvas-spec.md §2.2) but the shape leaves room for a third
@@ -24,16 +22,25 @@ const val MAX_VIEW_SCALE = 8f
  *  users lose their place. Enforced where zoom gestures clamp `scale`, not here. */
 const val MIN_VIEW_SCALE_PAGE_FRACTION = 0.3f
 
-fun ViewTransform.documentToScreen(point: DocumentPoint, density: Density): ScreenPoint {
-    val effectiveScale = scale * density.density
+/**
+ * [pixelsPerDp] is Compose's `Density.density` — passed as a plain `Float` rather than
+ * as a `Density`, so this package keeps its "pure Kotlin, zero Android/Compose
+ * imports" property (docs/18-architecture-target.md §3). Only the `.density` field was
+ * ever read, so the dependency bought nothing; call sites pass
+ * `LocalDensity.current.density`. This also matters for
+ * docs/23-cross-platform-plan.md Axis B, where `core/` is meant to move into
+ * `commonMain` untouched.
+ */
+fun ViewTransform.documentToScreen(point: DocumentPoint, pixelsPerDp: Float): ScreenPoint {
+    val effectiveScale = scale * pixelsPerDp
     return ScreenPoint(
         x = (point.x + pan.dx) * effectiveScale,
         y = (point.y + pan.dy) * effectiveScale
     )
 }
 
-fun ViewTransform.screenToDocument(point: ScreenPoint, density: Density): DocumentPoint {
-    val effectiveScale = scale * density.density
+fun ViewTransform.screenToDocument(point: ScreenPoint, pixelsPerDp: Float): DocumentPoint {
+    val effectiveScale = scale * pixelsPerDp
     return DocumentPoint(
         x = point.x / effectiveScale - pan.dx,
         y = point.y / effectiveScale - pan.dy

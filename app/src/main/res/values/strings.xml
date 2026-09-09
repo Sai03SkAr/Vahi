@@ -32,4 +32,5 @@
     <string name="settings_storage_notebook_count">Notebooks</string>
     <string name="settings_storage_note">This is total on-disk size, not a per-notebook breakdown — Vahi doesn\'t yet save your handwriting itself (only notebook titles and colours), so there isn\'t a meaningful per-notebook figure yet.</string>
     <string name="settings_about_version">Version</string>
+    <string name="settings_not_applied_yet">Saved, but not applied yet — this arrives with the new canvas.</string>
 </resources>
